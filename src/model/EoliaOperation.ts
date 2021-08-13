@@ -1,0 +1,2 @@
+interface EoliaOperation extends EoliaBase {
+}

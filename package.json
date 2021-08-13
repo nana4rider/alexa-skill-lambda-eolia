@@ -1,0 +1,26 @@
+{
+  "name": "alexa_smart_home_eolia",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "@types/luxon": "^2.0.0",
+    "@types/node": "^14.17.5",
+    "@types/uuid": "^8.3.1",
+    "axios": "^0.21.1",
+    "luxon": "^2.0.2",
+    "uuid": "^8.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^13.13.52",
+    "@typescript-eslint/eslint-plugin": "2.22.0",
+    "@typescript-eslint/parser": "2.22.0",
+    "aws-sdk": "^2.945.0",
+    "eslint": "^6.8.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
