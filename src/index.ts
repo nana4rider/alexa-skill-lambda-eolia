@@ -386,6 +386,7 @@ function getAlexaThermostatMode(mode: EoliaOperationMode): AlexaThermostatMode {
   case 'Auto':
     return 'AUTO';
   case 'Cooling':
+  case 'CoolDehumidifying':
     return 'COOL';
   case 'Heating':
     return 'HEAT';
