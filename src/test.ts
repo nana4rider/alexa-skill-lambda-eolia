@@ -19,6 +19,4 @@ void (async () => {
   console.log(operation.operation_token);
   status = await client.setDeviceStatus(operation);
   console.log(operation.operation_token);
-  operation = await client.setDevicePowerOff(operation.appliance_id, operation.operation_token);
-  console.log(operation.operation_token);
 })();

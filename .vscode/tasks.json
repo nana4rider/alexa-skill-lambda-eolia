@@ -10,10 +10,6 @@
       "problemMatcher": [
         "$tsc"
       ],
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
       "presentation": {
         "echo": true,
         "reveal": "silent",
@@ -21,6 +17,16 @@
         "panel": "shared",
         "showReuseMessage": false,
         "clear": false
+      }
+    },
+    {
+      "label": "zip",
+      "type": "shell",
+      "command": "npm run zip",
+      "dependsOn": ["tsc"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
       }
     }
   ]

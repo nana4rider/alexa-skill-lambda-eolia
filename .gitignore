@@ -2,3 +2,4 @@ node_modules
 dst/*
 !.gitkeep
 .env
+alexa_smart_home_eolia_*.zip

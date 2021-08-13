@@ -9,7 +9,7 @@ export class EoliaClient {
   private client: AxiosInstance;
 
   constructor(private userId: string, private password: string,
-    private accessToken: string | undefined = undefined,
+    public accessToken: string | undefined = undefined,
     private baseURL: string = EoliaClient.API_BASE_URL) {
 
     const options = {
@@ -89,29 +89,14 @@ export class EoliaClient {
   }
 
   async setDeviceStatus(operation: EoliaOperation): Promise<EoliaStatus> {
+    if (operation.operation_mode === 'Stop') {
+      operation.operation_mode = 'Auto';
+    }
+
     const applianceId = operation.appliance_id;
     const response = await this.client.put(`/devices/${applianceId}/status`, operation);
     operation.operation_token = response.data.operation_token;
     return response.data;
-  }
-
-  async setDevicePowerOff(applianceId: string, operationToken: string | null = null) {
-    return await this.setDeviceStatus({
-      appliance_id: applianceId,
-      operation_token: operationToken,
-      // Set dummy data.
-      operation_status: false,
-      nanoex: false,
-      wind_volume: 0,
-      air_flow: 'not_set',
-      wind_direction: 0,
-      wind_direction_horizon: 'auto',
-      timer_value: 0,
-      operation_mode: 'Auto',
-      temperature: 20,
-      ai_control: 'off',
-      airquality: false
-    });
   }
 
   createOperation(status: EoliaStatus): EoliaOperation {
@@ -137,10 +122,6 @@ export class EoliaClient {
       airquality: status.airquality,
       operation_token: status.operation_token,
     };
-
-    if (operation.operation_mode === 'Stop') {
-      operation.operation_mode = 'Auto';
-    }
 
     return operation;
   }
