@@ -19,6 +19,7 @@ export class EoliaClient {
         'Accept': 'application/json',
         'Content-Type': 'application/json; charset=UTF-8',
         'Accept-Language': 'ja-jp',
+        'Accept-Encoding': 'gzip'
       },
     };
 
