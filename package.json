@@ -21,7 +21,7 @@
   },
   "scripts": {
     "archive": "npm-build-zip --source=dst",
-    "deploy": "aws lambda update-function-code --function-name %npm_package_name% --zip-file fileb://%npm_package_name%_%npm_package_version%.zip"
+    "deploy": "aws lambda update-function-code --function-name %npm_package_name% --zip-file fileb://%npm_package_name%_%npm_package_version%.zip > deploy.log"
   },
   "author": "",
   "license": "ISC"

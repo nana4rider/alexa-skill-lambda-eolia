@@ -1,4 +1,3 @@
-// TODO gzip とか
 import { DateTime } from 'luxon';
 import { env } from 'process';
 import { v4 as uuid } from 'uuid';
@@ -15,6 +14,8 @@ const DEFAULT_TEMPERATURE: { [s in EoliaOperationMode]?: number } = {
   Cooling: 26,
   Heating: 20
 };
+
+const db = getDynamoDB();
 
 require('./config');
 
@@ -244,7 +245,6 @@ async function handleAcceptGrant(request: any) {
  */
 async function handleReportState(request: any) {
   const endpointId = request.directive.endpoint.endpointId as string;
-  const db = getDynamoDB();
 
   let currentStatusResult = await db.get({
     TableName: 'eolia_report_status',
@@ -529,8 +529,6 @@ export async function getClient() {
     throw new Error('User ID or Password is empty.');
   }
 
-  const db = getDynamoDB();
-
   let tokenResult = await db.get({
     TableName: 'tokens',
     Key: { id: 'eolia_access_token' }
@@ -549,8 +547,6 @@ export async function getClient() {
  * @returns 更新後のEolia状態データ
  */
 async function updateStatus(client: EoliaClient, status: EoliaStatus) {
-  const db = getDynamoDB();
-
   let operation = client.createOperation(status);
   let prevStatusResult = await db.get({
     TableName: 'eolia_report_status',
