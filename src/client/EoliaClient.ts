@@ -3,8 +3,9 @@ import { DateTime } from 'luxon';
 
 export class EoliaClient {
   static readonly API_BASE_URL = 'https://app.rac.apws.panasonic.com/eolia/v2';
-  static readonly LOWER_TEMPERATURE = 16;
-  static readonly UPPER_TEMPERATURE = 30;
+  static readonly MIN_TEMPERATURE = 16;
+  static readonly MAX_TEMPERATURE = 30;
+  static readonly TEMPERATURE_SUPPORT_MODES: EoliaOperationMode[] = ['Auto', 'Cooling', 'Heating', 'CoolDehumidifying'];
 
   private client: AxiosInstance;
 
@@ -23,18 +24,17 @@ export class EoliaClient {
 
     this.client = axios.create(options);
 
-    this.client.interceptors.request.use(
-      requestConfig => {
+    this.client.interceptors.request.use(requestConfig => {
+      console.log('[axios]', requestConfig.method, requestConfig.url);
 
-        if (this.accessToken) {
-          requestConfig.headers.Cookie = 'atkn=' + this.accessToken;
-        }
-
-        requestConfig.headers['X-Eolia-Date'] = DateTime.local().toFormat('yyyy-MM-dd\'T\'HH:mm:ss');
-
-        return requestConfig;
+      if (this.accessToken) {
+        requestConfig.headers.Cookie = 'atkn=' + this.accessToken;
       }
-    );
+
+      requestConfig.headers['X-Eolia-Date'] = DateTime.local().toFormat('yyyy-MM-dd\'T\'HH:mm:ss');
+
+      return requestConfig;
+    });
 
     this.client.interceptors.response.use(response => {
       if (response.headers['set-cookie']) {
@@ -47,13 +47,23 @@ export class EoliaClient {
 
       return response;
     }, async error => {
+      let data = error.response.data;
+      let httpStatus = error.response.status as number;
+      if (data.code) {
+        console.log('[eolia]', httpStatus, data.code, data.message);
+      }
+
       if (error.response.status === 401 && !error.config._retry) {
         error.config._retry = true;
         await this.login();
         return await this.client.request(error.config);
       }
 
-      throw error;
+      if (error.response.data.code) {
+        throw new EoliaHttpError(error, httpStatus, data.code, data.message);
+      } else {
+        throw error;
+      }
     });
   }
 
@@ -100,14 +110,13 @@ export class EoliaClient {
   }
 
   createOperation(status: EoliaStatus): EoliaOperation {
-    if (status.temperature < EoliaClient.LOWER_TEMPERATURE) {
-      status.temperature = EoliaClient.LOWER_TEMPERATURE;
-    }
-    if (status.temperature > EoliaClient.UPPER_TEMPERATURE) {
-      status.temperature = EoliaClient.UPPER_TEMPERATURE;
+    if (EoliaClient.isTemperatureSupport(status.operation_mode)
+      && (status.temperature < EoliaClient.MIN_TEMPERATURE
+        || status.temperature > EoliaClient.MAX_TEMPERATURE)) {
+      throw new EoliaTemperatureError(status.temperature);
     }
 
-    let operation : EoliaOperation = {
+    let operation: EoliaOperation = {
       appliance_id: status.appliance_id,
       operation_status: status.operation_status,
       nanoex: status.nanoex,
@@ -124,5 +133,24 @@ export class EoliaClient {
     };
 
     return operation;
+  }
+
+  static isTemperatureSupport(mode: EoliaOperationMode) {
+    return EoliaClient.TEMPERATURE_SUPPORT_MODES.includes(mode);
+  }
+}
+
+export class EoliaHttpError extends Error {
+  constructor(public cause: Error,
+    public httpStatus: number,
+    public code: string,
+    message: string) {
+    super(message);
+  }
+}
+
+export class EoliaTemperatureError extends Error {
+  constructor(public temperature: number) {
+    super('temperature: ' + temperature);
   }
 }
