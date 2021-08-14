@@ -20,10 +20,16 @@
       }
     },
     {
-      "label": "zip",
+      "label": "archive",
       "type": "shell",
-      "command": "npm run zip",
-      "dependsOn": ["tsc"],
+      "command": "npm run archive",
+      "dependsOn": ["tsc"]
+    },
+    {
+      "label": "deploy",
+      "type": "shell",
+      "command": "npm run deploy",
+      "dependsOn": ["archive"],
       "group": {
         "kind": "build",
         "isDefault": true

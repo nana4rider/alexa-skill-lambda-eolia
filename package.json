@@ -20,8 +20,8 @@
     "npm-build-zip": "^1.0.3"
   },
   "scripts": {
-    "zip": "npm-build-zip --source=dst",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "archive": "npm-build-zip --source=dst",
+    "deploy": "aws lambda update-function-code --function-name %npm_package_name% --zip-file fileb://%npm_package_name%_%npm_package_version%.zip"
   },
   "author": "",
   "license": "ISC"
