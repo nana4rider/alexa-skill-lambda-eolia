@@ -1,4 +1,6 @@
 import * as AWS from 'aws-sdk';
+import { EoliaOperationMode } from 'panasonic-eolia-ts';
+import { AlexaThermostatMode } from './model/AlexaThermostatMode';
 
 /**
  * DynamoDBインスタンスを取得します。

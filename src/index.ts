@@ -1,8 +1,9 @@
 import { DateTime } from 'luxon';
+import { EoliaClient, EoliaHttpError, EoliaOperationMode, EoliaStatus, EoliaTemperatureError } from 'panasonic-eolia-ts';
 import { env } from 'process';
 import { v4 as uuid } from 'uuid';
-import { EoliaClient, EoliaHttpError, EoliaTemperatureError } from './client/EoliaClient';
 import { getAlexaThermostatMode, getDynamoDB, getEoliaOperationMode } from './function';
+import { AlexaThermostatMode } from './model/AlexaThermostatMode';
 
 /** Turn ON時、指定した温度以上で冷房、それ以外は暖房とする */
 const TEMPERATURE_COOL_THRESHOLD = 24;
@@ -125,11 +126,11 @@ function handleError(request: any, error: Error) {
  * @returns
  */
 async function handleDiscover(request: any): Promise<object> {
-  let endpoints = [];
-  let client = await getClient();
-  let devices = await client.getDevices();
+  const endpoints = [];
+  const client = await getClient();
+  const devices = await client.getDevices();
 
-  for (let device of devices) {
+  for (const device of devices) {
     console.log('device:', device);
 
     endpoints.push({
@@ -246,7 +247,7 @@ async function handleAcceptGrant(request: any) {
 async function handleReportState(request: any) {
   const endpointId = request.directive.endpoint.endpointId as string;
 
-  let currentStatusResult = await db.get({
+  const currentStatusResult = await db.get({
     TableName: 'eolia_report_status',
     Key: { id: endpointId }
   }).promise();
@@ -316,7 +317,7 @@ async function handleSetTargetTemperature(request: any) {
   }
 
   if (EoliaClient.isTemperatureSupport(status.operation_mode)) {
-    let targetSetpoint: number = request.directive.payload.targetSetpoint.value;
+    const targetSetpoint: number = request.directive.payload.targetSetpoint.value;
     status.temperature = targetSetpoint;
 
     status = await updateStatus(client, status);
@@ -362,7 +363,7 @@ async function handleAdjustTargetTemperature(request: any) {
   }
 
   if (EoliaClient.isTemperatureSupport(status.operation_mode)) {
-    let targetSetpointDelta: number = request.directive.payload.targetSetpointDelta.value;
+    const targetSetpointDelta: number = request.directive.payload.targetSetpointDelta.value;
     status.temperature += targetSetpointDelta;
 
     status = await updateStatus(client, status);
@@ -480,8 +481,8 @@ async function handleSetThermostatMode(request: any) {
   const client = await getClient();
   let status = await client.getDeviceStatus(endpointId);
 
-  let thermostatMode: AlexaThermostatMode = request.directive.payload.thermostatMode.value;
-  let nextOperationMode = getEoliaOperationMode(thermostatMode);
+  const thermostatMode: AlexaThermostatMode = request.directive.payload.thermostatMode.value;
+  const nextOperationMode = getEoliaOperationMode(thermostatMode);
   if (nextOperationMode && nextOperationMode !== status.operation_mode) {
     // Alexaの指定モードを解釈できた場合もしくはモード変更がある場合のみ更新する
     status.operation_mode = nextOperationMode;
@@ -529,7 +530,7 @@ export async function getClient() {
     throw new Error('User ID or Password is empty.');
   }
 
-  let tokenResult = await db.get({
+  const tokenResult = await db.get({
     TableName: 'tokens',
     Key: { id: 'eolia_access_token' }
   }).promise();
@@ -547,8 +548,8 @@ export async function getClient() {
  * @returns 更新後のEolia状態データ
  */
 async function updateStatus(client: EoliaClient, status: EoliaStatus) {
-  let operation = client.createOperation(status);
-  let prevStatusResult = await db.get({
+  const operation = client.createOperation(status);
+  const prevStatusResult = await db.get({
     TableName: 'eolia_report_status',
     Key: { id: status.appliance_id }
   }).promise();
@@ -557,7 +558,7 @@ async function updateStatus(client: EoliaClient, status: EoliaStatus) {
     operation.operation_token = prevStatusResult.Item?.status.operation_token;
   }
 
-  let updatedStatus = await client.setDeviceStatus(operation);
+  const updatedStatus = await client.setDeviceStatus(operation);
 
   await db.put({
     TableName: 'tokens',
@@ -589,9 +590,9 @@ async function updateStatus(client: EoliaClient, status: EoliaStatus) {
 function createReports(status: EoliaStatus, uncertainty: number) {
   const now = DateTime.local().toISO();
   // operation_mode: Stopでputするとエラーを起こすので、operation_statusでOFF判断する
-  let thermostatMode: AlexaThermostatMode = !status.operation_status ?
+  const thermostatMode: AlexaThermostatMode = !status.operation_status ?
     'OFF' : getAlexaThermostatMode(status.operation_mode);
-  let targetSetpoint = EoliaClient.isTemperatureSupport(status.operation_mode) ? status.temperature : 0;
+  const targetSetpoint = EoliaClient.isTemperatureSupport(status.operation_mode) ? status.temperature : 0;
 
   return [
     // モード指定
