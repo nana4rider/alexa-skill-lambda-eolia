@@ -3,4 +3,3 @@ dst/*
 !.gitkeep
 .env
 *.zip
-deploy.log
