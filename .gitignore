@@ -1,5 +1,4 @@
 node_modules
 dst/*
 !.gitkeep
-.env
 *.zip
