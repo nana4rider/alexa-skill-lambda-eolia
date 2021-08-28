@@ -103,6 +103,8 @@ function handleError(request: any, error: Error) {
     payload = { type: 'INTERNAL_ERROR', message: error.message };
   }
 
+  console.log('[error]', error.message);
+
   return {
     'event': {
       'header': {

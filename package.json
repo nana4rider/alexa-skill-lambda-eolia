@@ -1,8 +1,10 @@
 {
-  "name": "alexa_smart_home_eolia",
-  "version": "1.0.0",
-  "description": "",
+  "name": "alexa-skill-lambda-eolia",
+  "version": "0.1.0",
   "main": "index.js",
+  "files": [
+    "dst/*.js"
+  ],
   "dependencies": {
     "@types/luxon": "^2.0.1",
     "@types/uuid": "^8.3.1",
@@ -11,19 +13,26 @@
     "panasonic-eolia-ts": "github:nana4rider/panasonic-eolia-ts",
     "uuid": "^8.3.2"
   },
+  "bundledDependencies": [
+    "axios",
+    "luxon",
+    "panasonic-eolia-ts",
+    "uuid"
+  ],
   "devDependencies": {
     "@types/node": "^16.7.1",
     "@typescript-eslint/eslint-plugin": "^4.29.2",
     "@typescript-eslint/parser": "^4.29.2",
     "aws-sdk": "^2.978.0",
     "eslint": "^7.32.0",
-    "npm-build-zip": "^1.0.3",
+    "npm-pack-zip": "^1.2.9",
     "typescript": "^4.1.5"
   },
   "scripts": {
-    "archive": "npm-build-zip --source=dst",
-    "deploy": "aws lambda update-function-code --function-name %npm_package_name% --zip-file fileb://%npm_package_name%_%npm_package_version%.zip > deploy.log"
+    "build": "npx tsc",
+    "archive": "npm-pack-zip",
+    "set-handler": "aws lambda update-function-configuration --function-name %npm_package_name% --handler dst/index.handler",
+    "deploy": "npm run build && npm run archive && aws lambda update-function-code --function-name %npm_package_name% --zip-file fileb://%npm_package_name%.zip > deploy.log"
   },
-  "author": "",
   "license": "ISC"
 }

@@ -1,3 +1,3 @@
-# alexa_smart_home_eolia
+# alexa-skill-lambda-eolia
 
-Alexa Smart Home Skill Eolia 
+Alexa Smart Home Skill Eolia
