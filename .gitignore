@@ -2,3 +2,4 @@ node_modules
 dst/*
 !.gitkeep
 *.zip
+deploy.log
