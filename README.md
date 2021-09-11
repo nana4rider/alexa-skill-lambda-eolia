@@ -3,23 +3,28 @@
 Alexa Smart Home Skill Eolia
 
 ## 初期設定
+### AWS CLIのインストール
+
+https://docs.aws.amazon.com/ja_jp/cli/latest/userguide/install-cliv2.html
+
+### コマンドの実行
 ```
 npm install
 npm run set-handler
 ```
 
-## AWSにデプロイ
-```
-npm run deploy
-```
-
-## 必要なテーブル
+### DynamoDBテーブルを作成
 パーティションキーは全て `id`
 
 `tokens`, `eolia_report_status`, `eolia_cleaning`
 
-## 環境変数の設定
+### Lambda環境変数の設定
 `USER_ID`, `PASSWORD`
+
+## AWSにデプロイ
+```
+npm run deploy
+```
 
 ## 命令可能なコマンド
 * Alexa、(冷房|暖房)を(ON|OFF)にして
