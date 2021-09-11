@@ -139,6 +139,7 @@ async function handleDiscover(request: any): Promise<object> {
   const endpoints = [];
   const client = await getClient();
   const devices = await client.getDevices();
+  const manufacturerName = 'Eolia Client';
 
   for (const device of devices) {
     console.log('device:', device);
@@ -146,7 +147,7 @@ async function handleDiscover(request: any): Promise<object> {
     endpoints.push({
       // https://developer.amazon.com/ja-JP/docs/alexa/device-apis/alexa-thermostatcontroller.html
       'endpointId': device.appliance_id,
-      'manufacturerName': 'Eolia Client',
+      'manufacturerName': manufacturerName,
       'friendlyName': device.nickname,
       'description': device.product_code + ' ' + device.product_name,
       'displayCategories': ['THERMOSTAT', 'TEMPERATURE_SENSOR'],
@@ -212,11 +213,29 @@ async function handleDiscover(request: any): Promise<object> {
       ]
     });
 
+    // パワフル
+    endpoints.push({
+      // https://developer.amazon.com/ja-JP/docs/alexa/device-apis/alexa-thermostatcontroller.html
+      'endpointId': device.appliance_id + '@Powerful',
+      'manufacturerName': manufacturerName,
+      'friendlyName': device.nickname + 'のパワフル',
+      'description': `${device.product_code} ${device.product_name} パワフル(冷房・暖房感を強く感じたい)機能`,
+      'displayCategories': ['SCENE_TRIGGER'],
+      'capabilities': [
+        {
+          'type': 'AlexaInterface',
+          'interface': 'Alexa.SceneController',
+          'version': '3',
+          'supportsDeactivation': true
+        }
+      ]
+    });
+
     // おでかけクリーン
     endpoints.push({
       // https://developer.amazon.com/ja-JP/docs/alexa/device-apis/alexa-thermostatcontroller.html
-      'endpointId': device.appliance_id + '@NanoexCleaning', // 命名はシーンが増えた際に検討
-      'manufacturerName': 'Eolia Client',
+      'endpointId': device.appliance_id + '@NanoexCleaning',
+      'manufacturerName': manufacturerName,
       'friendlyName': device.nickname + 'の掃除',
       'description': `${device.product_code} ${device.product_name} おでかけクリーン機能`,
       'displayCategories': ['SCENE_TRIGGER'],
@@ -679,7 +698,9 @@ async function handleSceneActivate(request: any) {
   const endpointId = request.directive.endpoint.endpointId as string;
   const [applianceId, sceneId] = endpointId.split('@');
 
-  if (sceneId === 'NanoexCleaning') {
+  if (sceneId === 'Powerful') {
+    await handlePowerfulActivate(applianceId);
+  } else if (sceneId === 'NanoexCleaning') {
     await handleCleaningActivate(applianceId);
   } else {
     throw new Error(`Undefined scene: ${sceneId}`);
@@ -708,6 +729,27 @@ async function handleSceneActivate(request: any) {
   };
 }
 
+/**
+ * パワフル有効
+ *
+ * @param applianceId
+ */
+async function handlePowerfulActivate(applianceId: string) {
+  const client = await getClient();
+  const status = await client.getDeviceStatus(applianceId);
+
+  if (EoliaClient.isTemperatureSupport(status.operation_mode) && status.air_flow !== 'powerful') {
+    status.air_flow = 'powerful';
+
+    await updateStatus(client, status);
+  }
+}
+
+/**
+ * おでかけクリーン有効
+ *
+ * @param applianceId
+ */
 async function handleCleaningActivate(applianceId: string) {
   const nowDate = DateTime.local();
   const now = nowDate.toISO();
@@ -757,7 +799,9 @@ async function handleSceneDeactivate(request: any) {
   const endpointId = request.directive.endpoint.endpointId as string;
   const [applianceId, sceneId] = endpointId.split('@');
 
-  if (sceneId === 'NanoexCleaning') {
+  if (sceneId === 'Powerful') {
+    await handlePowerfulDeactivate(applianceId);
+  } else if (sceneId === 'NanoexCleaning') {
     await handleCleaningDeactivate(applianceId);
   } else {
     throw new Error(`Undefined scene: ${sceneId}`);
@@ -786,15 +830,36 @@ async function handleSceneDeactivate(request: any) {
   };
 }
 
+/**
+ * パワフル無効
+ *
+ * @param applianceId
+ */
+async function handlePowerfulDeactivate(applianceId: string) {
+  const client = await getClient();
+  const status = await client.getDeviceStatus(applianceId);
+
+  if (EoliaClient.isTemperatureSupport(status.operation_mode) && status.air_flow !== 'not_set') {
+    status.air_flow = 'not_set';
+
+    await updateStatus(client, status);
+  }
+}
+
+/**
+ * おでかけクリーン無効
+ *
+ * @param applianceId
+ */
 async function handleCleaningDeactivate(applianceId: string) {
   const client = await getClient();
-  let status = await client.getDeviceStatus(applianceId);
+  const status = await client.getDeviceStatus(applianceId);
 
   if (status.operation_mode === 'NanoexCleaning' || status.operation_mode === 'Cleaning') {
     // operation_modeを変更しないと掃除が止まらない
     status.operation_mode = 'Auto';
     status.operation_status = false;
 
-    status = await updateStatus(client, status);
+    await updateStatus(client, status);
   }
 }
