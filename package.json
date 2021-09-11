@@ -1,6 +1,6 @@
 {
   "name": "alexa-skill-lambda-eolia",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "main": "index.js",
   "files": [
     "dst/*.js"
@@ -37,7 +37,7 @@
   "license": "ISC",
   "author": "nana4rider",
   "repository": {
-      "type": "git",
-      "url": "https://github.com/nana4rider/alexa-skill-lambda-eolia.git"
+    "type": "git",
+    "url": "https://github.com/nana4rider/alexa-skill-lambda-eolia.git"
   }
 }

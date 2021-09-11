@@ -1,1 +1,1 @@
-export type AlexaThermostatMode = 'AUTO' | 'COOL' | 'HEAT' | 'ECO' | 'OFF' | 'CUSTOM';
+export type AlexaThermostatMode = 'AUTO' | 'COOL' | 'HEAT' | 'OFF' | 'CUSTOM';

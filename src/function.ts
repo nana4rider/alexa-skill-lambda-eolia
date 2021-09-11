@@ -26,8 +26,6 @@ export function getAlexaThermostatMode(mode: EoliaOperationMode): AlexaThermosta
     return 'COOL';
   case 'Heating':
     return 'HEAT';
-  case 'Nanoe':
-    return 'ECO';
   case 'Stop':
     return 'OFF';
   }
@@ -38,9 +36,10 @@ export function getAlexaThermostatMode(mode: EoliaOperationMode): AlexaThermosta
  * Eolia操作モードを取得します。
  *
  * @param mode Alexa操作モード
+ * @param customName カスタム名
  * @returns
  */
-export function getEoliaOperationMode(mode: AlexaThermostatMode): EoliaOperationMode | undefined {
+export function getEoliaOperationMode(mode: AlexaThermostatMode, customName: string): EoliaOperationMode | undefined {
   switch (mode) {
   case 'AUTO':
     return 'Auto';
@@ -48,8 +47,14 @@ export function getEoliaOperationMode(mode: AlexaThermostatMode): EoliaOperation
     return 'Cooling';
   case 'HEAT':
     return 'Heating';
-  case 'ECO':
-    return 'Nanoe';
+  case 'CUSTOM':
+    switch (customName) {
+    case 'DEHUMIDIFY':
+      return 'CoolDehumidifying';
+    case 'FAN':
+      return 'Blast';
+    }
+    break;
   case 'OFF':
     return 'Stop';
   }
