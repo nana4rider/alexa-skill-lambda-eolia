@@ -553,6 +553,123 @@ async function handleSetThermostatMode(request: any) {
 }
 
 /**
+ * Eoliaクライアントを取得します。
+ *
+ * @returns Eoliaクライアント
+ */
+export async function getClient() {
+  if (!env.USER_ID || !env.PASSWORD) {
+    throw new Error('User ID or Password is empty.');
+  }
+
+  const tokenResult = await db.get({
+    TableName: 'tokens',
+    Key: { id: 'eolia_access_token' }
+  }).promise();
+
+  const accessToken = tokenResult.Item?.access_token;
+
+  return new EoliaClient(env.USER_ID, env.PASSWORD, accessToken);
+}
+
+/**
+ * エアコンの状態を更新します。
+ *
+ * @param client Eoliaクライアント
+ * @param status Eolia状態データ
+ * @returns 更新後のEolia状態データ
+ */
+async function updateStatus(client: EoliaClient, status: EoliaStatus) {
+  const operation = client.createOperation(status);
+  const prevStatusResult = await db.get({
+    TableName: 'eolia_report_status',
+    Key: { id: status.appliance_id }
+  }).promise();
+  // 前回のトークンがある場合は使用する
+  if (prevStatusResult.Item) {
+    operation.operation_token = prevStatusResult.Item?.status.operation_token;
+  }
+
+  const updatedStatus = await client.setDeviceStatus(operation);
+
+  await db.put({
+    TableName: 'tokens',
+    Item: {
+      id: 'eolia_access_token',
+      access_token: client.accessToken
+    }
+  }).promise();
+
+  await db.put({
+    TableName: 'eolia_report_status',
+    Item: {
+      id: status.appliance_id,
+      timestamp: DateTime.local().toISO(),
+      status: updatedStatus
+    }
+  }).promise();
+
+  return updatedStatus;
+}
+
+/**
+ * 変更レポートを作成します。
+ *
+ * @param status Eolia状態データ
+ * @param uncertainty
+ * @returns 変更レポート
+ */
+function createReports(status: EoliaStatus, uncertainty: number) {
+  const now = DateTime.local().toISO();
+  // operation_mode: Stopでputするとエラーを起こすので、operation_statusでOFF判断する
+  const thermostatMode: AlexaThermostatMode = !status.operation_status ?
+    'OFF' : getAlexaThermostatMode(status.operation_mode);
+  // 0度に設定すると、Alexaアプリで操作できなくなる
+  const targetSetpoint = EoliaClient.isTemperatureSupport(status.operation_mode) ? status.temperature : 0;
+
+  return [
+    // モード指定
+    {
+      'namespace': 'Alexa.ThermostatController',
+      'name': 'thermostatMode',
+      'value': thermostatMode,
+      'timeOfSample': now,
+      'uncertaintyInMilliseconds': uncertainty
+    },
+    // 温度指定
+    {
+      'namespace': 'Alexa.ThermostatController',
+      'name': 'targetSetpoint',
+      'value': {
+        'value': targetSetpoint,
+        'scale': 'CELSIUS'
+      },
+      'timeOfSample': now,
+      'uncertaintyInMilliseconds': uncertainty
+    },
+    // 温度計
+    {
+      'namespace': 'Alexa.TemperatureSensor',
+      'name': 'temperature',
+      'value': {
+        'value': status.inside_temp,
+        'scale': 'CELSIUS'
+      },
+      'timeOfSample': now,
+      'uncertaintyInMilliseconds': uncertainty
+    },
+    // ON/OFF
+    {
+      'namespace': 'Alexa.PowerController',
+      'name': 'powerState',
+      'value': status.operation_status ? 'ON' : 'OFF',
+      'timeOfSample': now,
+      'uncertaintyInMilliseconds': uncertainty
+    }
+  ];
+}
+
+/**
  * シーン有効
  *
  * @param request
@@ -668,121 +785,4 @@ async function handleSceneDeactivate(request: any) {
     },
     'context': {}
   };
-}
-
-/**
- * Eoliaクライアントを取得します。
- *
- * @returns Eoliaクライアント
- */
-export async function getClient() {
-  if (!env.USER_ID || !env.PASSWORD) {
-    throw new Error('User ID or Password is empty.');
-  }
-
-  const tokenResult = await db.get({
-    TableName: 'tokens',
-    Key: { id: 'eolia_access_token' }
-  }).promise();
-
-  const accessToken = tokenResult.Item?.access_token;
-
-  return new EoliaClient(env.USER_ID, env.PASSWORD, accessToken);
-}
-
-/**
- * エアコンの状態を更新します。
- *
- * @param client Eoliaクライアント
- * @param status Eolia状態データ
- * @returns 更新後のEolia状態データ
- */
-async function updateStatus(client: EoliaClient, status: EoliaStatus) {
-  const operation = client.createOperation(status);
-  const prevStatusResult = await db.get({
-    TableName: 'eolia_report_status',
-    Key: { id: status.appliance_id }
-  }).promise();
-  // 前回のトークンがある場合は使用する
-  if (prevStatusResult.Item) {
-    operation.operation_token = prevStatusResult.Item?.status.operation_token;
-  }
-
-  const updatedStatus = await client.setDeviceStatus(operation);
-
-  await db.put({
-    TableName: 'tokens',
-    Item: {
-      id: 'eolia_access_token',
-      access_token: client.accessToken
-    }
-  }).promise();
-
-  await db.put({
-    TableName: 'eolia_report_status',
-    Item: {
-      id: status.appliance_id,
-      timestamp: DateTime.local().toISO(),
-      status: updatedStatus
-    }
-  }).promise();
-
-  return updatedStatus;
-}
-
-/**
- * 変更レポートを作成します。
- *
- * @param status Eolia状態データ
- * @param uncertainty
- * @returns 変更レポート
- */
-function createReports(status: EoliaStatus, uncertainty: number) {
-  const now = DateTime.local().toISO();
-  // operation_mode: Stopでputするとエラーを起こすので、operation_statusでOFF判断する
-  const thermostatMode: AlexaThermostatMode = !status.operation_status ?
-    'OFF' : getAlexaThermostatMode(status.operation_mode);
-  // 0度に設定すると、Alexaアプリで操作できなくなる
-  const targetSetpoint = EoliaClient.isTemperatureSupport(status.operation_mode) ? status.temperature : 0;
-
-  return [
-    // モード指定
-    {
-      'namespace': 'Alexa.ThermostatController',
-      'name': 'thermostatMode',
-      'value': thermostatMode,
-      'timeOfSample': now,
-      'uncertaintyInMilliseconds': uncertainty
-    },
-    // 温度指定
-    {
-      'namespace': 'Alexa.ThermostatController',
-      'name': 'targetSetpoint',
-      'value': {
-        'value': targetSetpoint,
-        'scale': 'CELSIUS'
-      },
-      'timeOfSample': now,
-      'uncertaintyInMilliseconds': uncertainty
-    },
-    // 温度計
-    {
-      'namespace': 'Alexa.TemperatureSensor',
-      'name': 'temperature',
-      'value': {
-        'value': status.inside_temp,
-        'scale': 'CELSIUS'
-      },
-      'timeOfSample': now,
-      'uncertaintyInMilliseconds': uncertainty
-    },
-    // ON/OFF
-    {
-      'namespace': 'Alexa.PowerController',
-      'name': 'powerState',
-      'value': status.operation_status ? 'ON' : 'OFF',
-      'timeOfSample': now,
-      'uncertaintyInMilliseconds': uncertainty
-    }
-  ];
 }
