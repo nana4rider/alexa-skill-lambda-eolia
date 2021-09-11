@@ -27,6 +27,7 @@ exports.handler = async (request: any) => {
 
   let response: any;
   console.log('[request]', directiveNamespace, directiveName);
+  console.log('[requestData]', JSON.stringify(request));
 
   try {
     if (directiveNamespace === 'Alexa.Discovery' && directiveName === 'Discover') {
@@ -56,6 +57,9 @@ exports.handler = async (request: any) => {
     } else if (directiveNamespace === 'Alexa.SceneController' && directiveName === 'Activate') {
       // シーン有効
       response = await handleSceneActivate(request);
+    } else if (directiveNamespace === 'Alexa.SceneController' && directiveName === 'Deactivate') {
+      // シーン無効
+      response = await handleSceneDeactivate(request);
     } else {
       throw new Error(`namespace: ${directiveNamespace}, name: ${directiveName}`);
     }
@@ -221,7 +225,7 @@ async function handleDiscover(request: any): Promise<object> {
           'type': 'AlexaInterface',
           'interface': 'Alexa.SceneController',
           'version': '3',
-          'supportsDeactivation': false
+          'supportsDeactivation': true
         }
       ]
     });
@@ -601,6 +605,53 @@ async function handleSceneActivate(request: any) {
       'header': {
         'namespace': 'Alexa.SceneController',
         'name': 'ActivationStarted',
+        'messageId': uuid(),
+        'correlationToken': request.directive.header.correlationToken,
+        'payloadVersion': '3'
+      },
+      'endpoint': {
+        'endpointId': endpointId,
+      },
+      'payload': {
+        'cause': {
+          'type': 'APP_INTERACTION'
+        },
+        'timestamp': now
+      }
+    },
+    'context': {}
+  };
+}
+
+/**
+ * シーン無効
+ *
+ * @param request
+ * @returns
+ */
+async function handleSceneDeactivate(request: any) {
+  const endpointId = request.directive.endpoint.endpointId as string;
+  // シーンが増えたら分岐を入れる
+  const [applianceId,] = endpointId.split('@');
+
+  const now = DateTime.local().toISO();
+
+  const client = await getClient();
+  let status = await client.getDeviceStatus(applianceId);
+
+  if (status.operation_mode === 'NanoexCleaning' || status.operation_mode === 'Cleaning') {
+    // operation_modeを変更しないと掃除が止まらない
+    status.operation_mode = 'Auto';
+    status.operation_status = false;
+
+    status = await updateStatus(client, status);
+  }
+
+  return {
+    'event': {
+      'header': {
+        'namespace': 'Alexa.SceneController',
+        'name': 'DeactivationStarted',
         'messageId': uuid(),
         'correlationToken': request.directive.header.correlationToken,
         'payloadVersion': '3'
