@@ -320,7 +320,8 @@ async function handleSetTargetTemperature(request: any) {
   }
 
   const targetSetpoint: number = request.directive.payload.targetSetpoint.value;
-  if (EoliaClient.isTemperatureSupport(status.operation_mode)) {
+
+  if (EoliaClient.isTemperatureSupport(status.operation_mode) && status.temperature !== targetSetpoint) {
     status.temperature = targetSetpoint;
 
     status = await updateStatus(client, status);
