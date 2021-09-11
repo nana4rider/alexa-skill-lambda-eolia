@@ -53,6 +53,9 @@ exports.handler = async (request: any) => {
     } else if (directiveNamespace === 'Alexa.ThermostatController' && directiveName === 'SetThermostatMode') {
       // モード指定
       response = await handleSetThermostatMode(request);
+    } else if (directiveNamespace === 'Alexa.SceneController' && directiveName === 'Activate') {
+      // シーン有効
+      response = await handleSceneActivate(request);
     } else {
       throw new Error(`namespace: ${directiveNamespace}, name: ${directiveName}`);
     }
@@ -74,7 +77,7 @@ exports.handler = async (request: any) => {
  * @returns
  */
 function handleError(request: any, error: Error) {
-  const endpointId = request.directive.endpoint.endpointId as string;
+  const applianceId = request.directive.endpoint.endpointId as string;
 
   let payload = undefined;
   if (error instanceof EoliaHttpError) {
@@ -115,7 +118,7 @@ function handleError(request: any, error: Error) {
         'payloadVersion': '3'
       },
       'endpoint': {
-        'endpointId': endpointId
+        'endpointId': applianceId
       },
       'payload': payload
     }
@@ -143,7 +146,6 @@ async function handleDiscover(request: any): Promise<object> {
       'friendlyName': device.nickname,
       'description': device.product_code + ' ' + device.product_name,
       'displayCategories': ['THERMOSTAT', 'TEMPERATURE_SENSOR'],
-      'cookie': {},
       'capabilities': [
         // エアコン
         {
@@ -205,6 +207,24 @@ async function handleDiscover(request: any): Promise<object> {
         }
       ]
     });
+
+    // おでかけクリーン
+    endpoints.push({
+      // https://developer.amazon.com/ja-JP/docs/alexa/device-apis/alexa-thermostatcontroller.html
+      'endpointId': device.appliance_id + '@NanoexCleaning', // 命名はシーンが増えた際に検討
+      'manufacturerName': 'Eolia Client',
+      'friendlyName': device.nickname + 'の掃除',
+      'description': `${device.product_code} ${device.product_name} おでかけクリーン機能`,
+      'displayCategories': ['SCENE_TRIGGER'],
+      'capabilities': [
+        {
+          'type': 'AlexaInterface',
+          'interface': 'Alexa.SceneController',
+          'version': '3',
+          'supportsDeactivation': false
+        }
+      ]
+    });
   }
 
   return {
@@ -248,11 +268,11 @@ async function handleAcceptGrant(request: any) {
  * @returns
  */
 async function handleReportState(request: any) {
-  const endpointId = request.directive.endpoint.endpointId as string;
+  const applianceId = request.directive.endpoint.endpointId as string;
 
   const currentStatusResult = await db.get({
     TableName: 'eolia_report_status',
-    Key: { id: endpointId }
+    Key: { id: applianceId }
   }).promise();
 
   let reportStatus: EoliaStatus | undefined = undefined;
@@ -265,7 +285,7 @@ async function handleReportState(request: any) {
   // 機器新規登録時、もしくはデータが古い場合は更新
   if (!reportStatus || uncertainty >= REFRESH_STATUS_MILLISECONDS) {
     const client = await getClient();
-    reportStatus = await client.getDeviceStatus(endpointId);
+    reportStatus = await client.getDeviceStatus(applianceId);
     if (currentStatusResult.Item) {
       await db.put({
         TableName: 'eolia_report_status',
@@ -290,7 +310,7 @@ async function handleReportState(request: any) {
         'payloadVersion': '3'
       },
       'endpoint': {
-        'endpointId': endpointId
+        'endpointId': applianceId
       },
       'payload': {}
     },
@@ -308,10 +328,10 @@ async function handleReportState(request: any) {
  * @returns
  */
 async function handleSetTargetTemperature(request: any) {
-  const endpointId = request.directive.endpoint.endpointId as string;
+  const applianceId = request.directive.endpoint.endpointId as string;
 
   const client = await getClient();
-  let status = await client.getDeviceStatus(endpointId);
+  let status = await client.getDeviceStatus(applianceId);
 
   // 強制的にONにする
   if (!status.operation_status) {
@@ -337,7 +357,7 @@ async function handleSetTargetTemperature(request: any) {
         'payloadVersion': '3'
       },
       'endpoint': {
-        'endpointId': endpointId,
+        'endpointId': applianceId,
       },
       'payload': {},
     },
@@ -355,10 +375,10 @@ async function handleSetTargetTemperature(request: any) {
  * @returns
  */
 async function handleAdjustTargetTemperature(request: any) {
-  const endpointId = request.directive.endpoint.endpointId as string;
+  const applianceId = request.directive.endpoint.endpointId as string;
 
   const client = await getClient();
-  let status = await client.getDeviceStatus(endpointId);
+  let status = await client.getDeviceStatus(applianceId);
 
   // 強制的にONにする
   if (!status.operation_status) {
@@ -383,7 +403,7 @@ async function handleAdjustTargetTemperature(request: any) {
         'payloadVersion': '3'
       },
       'endpoint': {
-        'endpointId': endpointId,
+        'endpointId': applianceId,
       },
       'payload': {},
     },
@@ -400,10 +420,10 @@ async function handleAdjustTargetTemperature(request: any) {
  * @returns
  */
 async function handleTurnOn(request: any) {
-  const endpointId = request.directive.endpoint.endpointId as string;
+  const applianceId = request.directive.endpoint.endpointId as string;
 
   const client = await getClient();
-  let status = await client.getDeviceStatus(endpointId);
+  let status = await client.getDeviceStatus(applianceId);
 
   // 既にONになっている場合は返答のみ
   if (!status.operation_status) {
@@ -423,7 +443,7 @@ async function handleTurnOn(request: any) {
         'payloadVersion': '3'
       },
       'endpoint': {
-        'endpointId': endpointId,
+        'endpointId': applianceId,
       },
       'payload': {},
     },
@@ -440,13 +460,14 @@ async function handleTurnOn(request: any) {
  * @returns
  */
 async function handleTurnOff(request: any) {
-  const endpointId = request.directive.endpoint.endpointId as string;
+  const applianceId = request.directive.endpoint.endpointId as string;
 
   const client = await getClient();
-  let status = await client.getDeviceStatus(endpointId);
+  let status = await client.getDeviceStatus(applianceId);
 
   // 既にOFFになっている場合は返答のみ
-  if (status.operation_status) {
+  // operation_status=falseでも掃除中の場合があるので、operation_mode=STOPでOFFかどうかを確認する
+  if (status.operation_mode !== 'Stop') {
     status.operation_status = false;
 
     status = await updateStatus(client, status);
@@ -462,7 +483,7 @@ async function handleTurnOff(request: any) {
         'payloadVersion': '3'
       },
       'endpoint': {
-        'endpointId': endpointId,
+        'endpointId': applianceId,
       },
       'payload': {},
     },
@@ -480,10 +501,10 @@ async function handleTurnOff(request: any) {
  * @returns
  */
 async function handleSetThermostatMode(request: any) {
-  const endpointId = request.directive.endpoint.endpointId as string;
+  const applianceId = request.directive.endpoint.endpointId as string;
 
   const client = await getClient();
-  let status = await client.getDeviceStatus(endpointId);
+  let status = await client.getDeviceStatus(applianceId);
 
   const thermostatMode: AlexaThermostatMode = request.directive.payload.thermostatMode.value;
   const customName: string = request.directive.payload.thermostatMode.customName;
@@ -517,13 +538,84 @@ async function handleSetThermostatMode(request: any) {
         'payloadVersion': '3'
       },
       'endpoint': {
-        'endpointId': endpointId,
+        'endpointId': applianceId,
       },
       'payload': {},
     },
     'context': {
       'properties': createReports(status, 0)
     }
+  };
+}
+
+/**
+ * シーン有効
+ *
+ * @param request
+ * @returns
+ */
+async function handleSceneActivate(request: any) {
+  const endpointId = request.directive.endpoint.endpointId as string;
+  // シーンが増えたら分岐を入れる
+  const [applianceId,] = endpointId.split('@');
+
+  const nowDate = DateTime.local();
+  const now = nowDate.toISO();
+
+  const client = await getClient();
+  let status = await client.getDeviceStatus(applianceId);
+
+  if (status.operation_mode !== 'NanoexCleaning' && status.operation_mode !== 'Cleaning') {
+    const prevCleaning = await db.get({
+      TableName: 'eolia_cleaning',
+      Key: { id: status.appliance_id }
+    }).promise();
+    // 前回のトークンがある場合は使用する
+
+    let doCleaning: boolean;
+    if (prevCleaning.Item) {
+      const lastDate = DateTime.fromISO(prevCleaning.Item.lastCleaning);
+      // 実行を日毎に制限する
+      doCleaning = lastDate.year !== nowDate.year
+        || lastDate.month !== nowDate.month
+        || lastDate.day !== nowDate.day;
+    } else {
+      doCleaning = true;
+    }
+
+    if (doCleaning) {
+      status.operation_status = false;
+      status.operation_mode = 'NanoexCleaning';
+
+      status = await updateStatus(client, status);
+
+      await db.put({
+        TableName: 'eolia_cleaning',
+        Item: { id: status.appliance_id, lastCleaning: now }
+      }).promise();
+    }
+  }
+
+  return {
+    'event': {
+      'header': {
+        'namespace': 'Alexa.SceneController',
+        'name': 'ActivationStarted',
+        'messageId': uuid(),
+        'correlationToken': request.directive.header.correlationToken,
+        'payloadVersion': '3'
+      },
+      'endpoint': {
+        'endpointId': endpointId,
+      },
+      'payload': {
+        'cause': {
+          'type': 'APP_INTERACTION'
+        },
+        'timestamp': now
+      }
+    },
+    'context': {}
   };
 }
 
