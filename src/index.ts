@@ -677,9 +677,38 @@ function createReports(status: EoliaStatus, uncertainty: number) {
  */
 async function handleSceneActivate(request: any) {
   const endpointId = request.directive.endpoint.endpointId as string;
-  // シーンが増えたら分岐を入れる
-  const [applianceId,] = endpointId.split('@');
+  const [applianceId, sceneId] = endpointId.split('@');
 
+  if (sceneId === 'NanoexCleaning') {
+    await handleCleaningActivate(applianceId);
+  } else {
+    throw new Error(`Undefined scene: ${sceneId}`);
+  }
+
+  return {
+    'event': {
+      'header': {
+        'namespace': 'Alexa.SceneController',
+        'name': 'ActivationStarted',
+        'messageId': uuid(),
+        'correlationToken': request.directive.header.correlationToken,
+        'payloadVersion': '3'
+      },
+      'endpoint': {
+        'endpointId': endpointId,
+      },
+      'payload': {
+        'cause': {
+          'type': 'APP_INTERACTION'
+        },
+        'timestamp': DateTime.local().toISO()
+      }
+    },
+    'context': {}
+  };
+}
+
+async function handleCleaningActivate(applianceId: string) {
   const nowDate = DateTime.local();
   const now = nowDate.toISO();
 
@@ -716,28 +745,6 @@ async function handleSceneActivate(request: any) {
       }).promise();
     }
   }
-
-  return {
-    'event': {
-      'header': {
-        'namespace': 'Alexa.SceneController',
-        'name': 'ActivationStarted',
-        'messageId': uuid(),
-        'correlationToken': request.directive.header.correlationToken,
-        'payloadVersion': '3'
-      },
-      'endpoint': {
-        'endpointId': endpointId,
-      },
-      'payload': {
-        'cause': {
-          'type': 'APP_INTERACTION'
-        },
-        'timestamp': now
-      }
-    },
-    'context': {}
-  };
 }
 
 /**
@@ -748,20 +755,12 @@ async function handleSceneActivate(request: any) {
  */
 async function handleSceneDeactivate(request: any) {
   const endpointId = request.directive.endpoint.endpointId as string;
-  // シーンが増えたら分岐を入れる
-  const [applianceId,] = endpointId.split('@');
+  const [applianceId, sceneId] = endpointId.split('@');
 
-  const now = DateTime.local().toISO();
-
-  const client = await getClient();
-  let status = await client.getDeviceStatus(applianceId);
-
-  if (status.operation_mode === 'NanoexCleaning' || status.operation_mode === 'Cleaning') {
-    // operation_modeを変更しないと掃除が止まらない
-    status.operation_mode = 'Auto';
-    status.operation_status = false;
-
-    status = await updateStatus(client, status);
+  if (sceneId === 'NanoexCleaning') {
+    await handleCleaningDeactivate(applianceId);
+  } else {
+    throw new Error(`Undefined scene: ${sceneId}`);
   }
 
   return {
@@ -780,9 +779,22 @@ async function handleSceneDeactivate(request: any) {
         'cause': {
           'type': 'APP_INTERACTION'
         },
-        'timestamp': now
+        'timestamp': DateTime.local().toISO()
       }
     },
     'context': {}
   };
+}
+
+async function handleCleaningDeactivate(applianceId: string) {
+  const client = await getClient();
+  let status = await client.getDeviceStatus(applianceId);
+
+  if (status.operation_mode === 'NanoexCleaning' || status.operation_mode === 'Cleaning') {
+    // operation_modeを変更しないと掃除が止まらない
+    status.operation_mode = 'Auto';
+    status.operation_status = false;
+
+    status = await updateStatus(client, status);
+  }
 }
