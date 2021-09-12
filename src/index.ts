@@ -213,24 +213,6 @@ async function handleDiscover(request: any): Promise<object> {
       ]
     });
 
-    // パワフル
-    endpoints.push({
-      // https://developer.amazon.com/ja-JP/docs/alexa/device-apis/alexa-thermostatcontroller.html
-      'endpointId': device.appliance_id + '@Powerful',
-      'manufacturerName': manufacturerName,
-      'friendlyName': device.nickname + 'のパワフル',
-      'description': `${device.product_code} ${device.product_name} パワフル(冷房・暖房感を強く感じたい)機能`,
-      'displayCategories': ['SCENE_TRIGGER'],
-      'capabilities': [
-        {
-          'type': 'AlexaInterface',
-          'interface': 'Alexa.SceneController',
-          'version': '3',
-          'supportsDeactivation': true
-        }
-      ]
-    });
-
     // おでかけクリーン
     endpoints.push({
       // https://developer.amazon.com/ja-JP/docs/alexa/device-apis/alexa-thermostatcontroller.html
@@ -698,9 +680,7 @@ async function handleSceneActivate(request: any) {
   const endpointId = request.directive.endpoint.endpointId as string;
   const [applianceId, sceneId] = endpointId.split('@');
 
-  if (sceneId === 'Powerful') {
-    await handlePowerfulActivate(applianceId);
-  } else if (sceneId === 'NanoexCleaning') {
+  if (sceneId === 'NanoexCleaning') {
     await handleCleaningActivate(applianceId);
   } else {
     throw new Error(`Undefined scene: ${sceneId}`);
@@ -727,22 +707,6 @@ async function handleSceneActivate(request: any) {
     },
     'context': {}
   };
-}
-
-/**
- * パワフル有効
- *
- * @param applianceId
- */
-async function handlePowerfulActivate(applianceId: string) {
-  const client = await getClient();
-  const status = await client.getDeviceStatus(applianceId);
-
-  if (EoliaClient.isTemperatureSupport(status.operation_mode) && status.air_flow !== 'powerful') {
-    status.air_flow = 'powerful';
-
-    await updateStatus(client, status);
-  }
 }
 
 /**
@@ -799,9 +763,7 @@ async function handleSceneDeactivate(request: any) {
   const endpointId = request.directive.endpoint.endpointId as string;
   const [applianceId, sceneId] = endpointId.split('@');
 
-  if (sceneId === 'Powerful') {
-    await handlePowerfulDeactivate(applianceId);
-  } else if (sceneId === 'NanoexCleaning') {
+  if (sceneId === 'NanoexCleaning') {
     await handleCleaningDeactivate(applianceId);
   } else {
     throw new Error(`Undefined scene: ${sceneId}`);
@@ -828,22 +790,6 @@ async function handleSceneDeactivate(request: any) {
     },
     'context': {}
   };
-}
-
-/**
- * パワフル無効
- *
- * @param applianceId
- */
-async function handlePowerfulDeactivate(applianceId: string) {
-  const client = await getClient();
-  const status = await client.getDeviceStatus(applianceId);
-
-  if (EoliaClient.isTemperatureSupport(status.operation_mode) && status.air_flow !== 'not_set') {
-    status.air_flow = 'not_set';
-
-    await updateStatus(client, status);
-  }
 }
 
 /**
