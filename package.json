@@ -1,9 +1,9 @@
 {
   "name": "alexa-skill-lambda-eolia",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "main": "index.js",
   "files": [
-    "dst/*.js"
+    "dst/**/*.js"
   ],
   "dependencies": {
     "@types/luxon": "^2.0.1",
