@@ -13,3 +13,18 @@ export function getDynamoDB() {
   }
   return db;
 }
+
+/**
+ * Alexaエラー
+ */
+export class AlexaError extends Error {
+  /**
+   * コンストラクタ
+   *
+   * @param type https://developer.amazon.com/ja-JP/docs/alexa/device-apis/alexa-errorresponse.html#error-types
+   * @param message エラーメッセージ
+   */
+  constructor(public type: string, message?: string) {
+    super(message);
+  }
+}

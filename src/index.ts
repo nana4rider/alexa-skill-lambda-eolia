@@ -1,10 +1,9 @@
 import * as luxon from 'luxon';
+import { handleChildSceneActivate, handleChildSceneDeactivate, handleChildSetMode, handleChildTurnOff, handleChildTurnOn } from './handle/child';
+import { handleAcceptGrant, handleReportState } from './handle/common';
 import { handleDiscover } from './handle/discovery';
 import { handleError } from './handle/error';
-import { handleAcceptGrant, handleReportState } from './handle/others';
-import { handleTurnOff, handleTurnOn } from './handle/power';
-import { handleSceneActivate, handleSceneDeactivate } from './handle/scene';
-import { handleAdjustTargetTemperature, handleSetTargetTemperature, handleSetThermostatMode } from './handle/thermostat';
+import { handleAdjustTargetTemperature, handleSetTargetTemperature, handleSetThermostatMode, handleTurnOff, handleTurnOn } from './handle/thermostat';
 
 luxon.Settings.defaultLocale = 'ja';
 luxon.Settings.defaultZone = 'Asia/Tokyo';
@@ -43,12 +42,21 @@ exports.handler = async (request: any) => {
     } else if (directiveNamespace === 'Alexa.ThermostatController' && directiveName === 'SetThermostatMode') {
       // モード指定
       response = await handleSetThermostatMode(request);
+    } else if (directiveNamespace === 'Alexa.ModeController' && directiveName === 'SetMode') {
+      // モード指定(child)
+      response = await handleChildSetMode(request);
+    } else if (directiveNamespace === 'Alexa.ToggleController' && directiveName === 'TurnOn') {
+      // ON(child)
+      response = await handleChildTurnOn(request);
+    } else if (directiveNamespace === 'Alexa.ToggleController' && directiveName === 'TurnOff') {
+      // OFF(child)
+      response = await handleChildTurnOff(request);
     } else if (directiveNamespace === 'Alexa.SceneController' && directiveName === 'Activate') {
-      // シーン有効
-      response = await handleSceneActivate(request);
+      // シーン有効(child)
+      response = await handleChildSceneActivate(request);
     } else if (directiveNamespace === 'Alexa.SceneController' && directiveName === 'Deactivate') {
-      // シーン無効
-      response = await handleSceneDeactivate(request);
+      // シーン無効(child)
+      response = await handleChildSceneDeactivate(request);
     } else {
       throw new Error(`namespace: ${directiveNamespace}, name: ${directiveName}`);
     }

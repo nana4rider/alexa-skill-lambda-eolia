@@ -1,7 +1,8 @@
-import { EoliaClient } from 'panasonic-eolia-ts';
+import { DateTime } from 'luxon';
+import { EoliaClient, EoliaStatus } from 'panasonic-eolia-ts';
 import { v4 as uuid } from 'uuid';
 import { AlexaThermostatMode } from '../model/AlexaThermostatMode';
-import { createReports, DEFAULT_TEMPERATURE, getClient, getEoliaOperationMode, TEMPERATURE_COOL_THRESHOLD, updateStatus } from './common';
+import { DEFAULT_TEMPERATURE, getAlexaThermostatMode, getClient, getEoliaOperationMode, TEMPERATURE_COOL_THRESHOLD, updateStatus } from './common';
 
 /**
  * 温度指定(絶対値)
@@ -45,7 +46,7 @@ export async function handleSetTargetTemperature(request: any) {
       'payload': {},
     },
     'context': {
-      'properties': createReports(status, 0)
+      'properties': createThermostatReports(status, 0)
     }
   };
 }
@@ -91,7 +92,7 @@ export async function handleAdjustTargetTemperature(request: any) {
       'payload': {},
     },
     'context': {
-      'properties': createReports(status, 0)
+      'properties': createThermostatReports(status, 0)
     }
   };
 }
@@ -122,10 +123,9 @@ export async function handleSetThermostatMode(request: any) {
       if (EoliaClient.isTemperatureSupport(nextOperationMode)
         && DEFAULT_TEMPERATURE[nextOperationMode]) {
         status.temperature = DEFAULT_TEMPERATURE[nextOperationMode]!;
+        // AI快適をON
         status.ai_control = 'comfortable';
       }
-      // ナノイーXもデフォルトにしておく
-      status.nanoex = true;
     }
 
     status = await updateStatus(client, status);
@@ -146,7 +146,144 @@ export async function handleSetThermostatMode(request: any) {
       'payload': {},
     },
     'context': {
-      'properties': createReports(status, 0)
+      'properties': createThermostatReports(status, 0)
     }
   };
+}
+
+/**
+ * Turn ON
+ *
+ * @param request
+ * @returns
+ */
+export async function handleTurnOn(request: any) {
+  const applianceId = request.directive.endpoint.endpointId as string;
+
+  const client = await getClient();
+  let status = await client.getDeviceStatus(applianceId);
+
+  // 既にONになっている場合は返答のみ
+  if (!status.operation_status) {
+    status.operation_status = true;
+    status.operation_mode = status.temperature >= TEMPERATURE_COOL_THRESHOLD ? 'Cooling' : 'Heating';
+
+    status = await updateStatus(client, status);
+  }
+
+  return {
+    'event': {
+      'header': {
+        'namespace': 'Alexa',
+        'name': 'Response',
+        'messageId': uuid(),
+        'correlationToken': request.directive.header.correlationToken,
+        'payloadVersion': '3'
+      },
+      'endpoint': {
+        'endpointId': applianceId,
+      },
+      'payload': {},
+    },
+    'context': {
+      'properties': createThermostatReports(status, 0)
+    }
+  };
+}
+
+/**
+ * Turn OFF
+ *
+ * @param request
+ * @returns
+ */
+export async function handleTurnOff(request: any) {
+  const applianceId = request.directive.endpoint.endpointId as string;
+
+  const client = await getClient();
+  let status = await client.getDeviceStatus(applianceId);
+
+  // 既にOFFになっている場合は返答のみ
+  // operation_status=falseでも掃除中の場合があるので、operation_mode=STOPでOFFかどうかを確認する
+  if (status.operation_mode !== 'Stop') {
+    status.operation_status = false;
+
+    status = await updateStatus(client, status);
+  }
+
+  return {
+    'event': {
+      'header': {
+        'namespace': 'Alexa',
+        'name': 'Response',
+        'messageId': uuid(),
+        'correlationToken': request.directive.header.correlationToken,
+        'payloadVersion': '3'
+      },
+      'endpoint': {
+        'endpointId': applianceId,
+      },
+      'payload': {},
+    },
+    'context': {
+      'properties': createThermostatReports(status, 0)
+    }
+  };
+}
+
+/**
+ * 変更レポートを作成します。
+ *
+ * @param status Eolia状態データ
+ * @param uncertainty
+ * @returns 変更レポート
+ */
+export function createThermostatReports(status: EoliaStatus, uncertainty: number) {
+  const now = DateTime.local().toISO();
+  // operation_mode: Stopでputするとエラーを起こすので、operation_statusでOFF判断する
+  const thermostatMode: AlexaThermostatMode = !status.operation_status ?
+    'OFF' : getAlexaThermostatMode(status.operation_mode);
+  // 0度に設定すると、Alexaアプリで操作できなくなる
+  const targetSetpoint = EoliaClient.isTemperatureSupport(status.operation_mode) ? status.temperature : 0;
+
+  return [
+    // モード指定
+    {
+      'namespace': 'Alexa.ThermostatController',
+      'name': 'thermostatMode',
+      'value': thermostatMode,
+      'timeOfSample': now,
+      'uncertaintyInMilliseconds': uncertainty
+    },
+    // 温度指定
+    {
+      'namespace': 'Alexa.ThermostatController',
+      'name': 'targetSetpoint',
+      'value': {
+        'value': targetSetpoint,
+        'scale': 'CELSIUS'
+      },
+      'timeOfSample': now,
+      'uncertaintyInMilliseconds': uncertainty
+    },
+    // 温度計
+    {
+      'namespace': 'Alexa.TemperatureSensor',
+      'name': 'temperature',
+      'value': {
+        'value': status.inside_temp,
+        'scale': 'CELSIUS'
+      },
+      'timeOfSample': now,
+      'uncertaintyInMilliseconds': uncertainty
+    },
+    // ON/OFF
+    {
+      'namespace': 'Alexa.PowerController',
+      'name': 'powerState',
+      'value': status.operation_status ? 'ON' : 'OFF',
+      'timeOfSample': now,
+      'uncertaintyInMilliseconds': uncertainty
+    }
+  ];
 }

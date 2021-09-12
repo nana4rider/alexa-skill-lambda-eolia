@@ -1,5 +1,6 @@
 import { EoliaClient, EoliaHttpError, EoliaTemperatureError } from 'panasonic-eolia-ts';
 import { v4 as uuid } from 'uuid';
+import { AlexaError } from '../util';
 
 /**
  * エラー処理
@@ -12,7 +13,9 @@ export function handleError(request: any, error: Error) {
   const applianceId = request.directive.endpoint.endpointId as string;
 
   let payload = undefined;
-  if (error instanceof EoliaHttpError) {
+  if (error instanceof AlexaError) {
+    payload = { type: error.type, message: error.message };
+  } else if (error instanceof EoliaHttpError) {
     if (error.httpStatus === 409) {
       // Alexa: うまくいきませんでした
       // 他に適切なエラーがあれば。

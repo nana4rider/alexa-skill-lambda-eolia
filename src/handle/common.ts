@@ -1,13 +1,16 @@
 import { DateTime } from 'luxon';
 import { EoliaClient, EoliaOperationMode, EoliaStatus } from 'panasonic-eolia-ts';
 import { env } from 'process';
+import { v4 as uuid } from 'uuid';
 import { AlexaThermostatMode } from '../model/AlexaThermostatMode';
 import { getDynamoDB } from '../util';
+import { createFanReports } from './fan';
+import { createThermostatReports } from './thermostat';
 
 /** Turn ON時、指定した温度以上で冷房、それ以外は暖房とする */
 export const TEMPERATURE_COOL_THRESHOLD = 24;
-/** 指定時間を超えると、ReportState時にデータを再取得する */
-export const REFRESH_STATUS_MILLISECONDS = 60000;
+/** 指定時間を超えると、ReportState時にデータを再取得する(トークンを引き継がないので、120秒以上を指定する) */
+export const REFRESH_STATUS_MILLISECONDS = 120000;
 /** デフォルトの設定温度  */
 export const DEFAULT_TEMPERATURE: { [s in EoliaOperationMode]?: number } = {
   Auto: 24,
@@ -128,58 +131,91 @@ export async function updateStatus(client: EoliaClient, status: EoliaStatus) {
 }
 
 /**
- * 変更レポートを作成します。
+ * 認証
  *
- * @param status Eolia状態データ
- * @param uncertainty
- * @returns 変更レポート
+ * @param request
+ * @returns
  */
-export function createReports(status: EoliaStatus, uncertainty: number) {
-  const now = DateTime.local().toISO();
-  // operation_mode: Stopでputするとエラーを起こすので、operation_statusでOFF判断する
-  const thermostatMode: AlexaThermostatMode = !status.operation_status ?
-    'OFF' : getAlexaThermostatMode(status.operation_mode);
-  // 0度に設定すると、Alexaアプリで操作できなくなる
-  const targetSetpoint = EoliaClient.isTemperatureSupport(status.operation_mode) ? status.temperature : 0;
-
-  return [
-    // モード指定
-    {
-      'namespace': 'Alexa.ThermostatController',
-      'name': 'thermostatMode',
-      'value': thermostatMode,
-      'timeOfSample': now,
-      'uncertaintyInMilliseconds': uncertainty
-    },
-    // 温度指定
-    {
-      'namespace': 'Alexa.ThermostatController',
-      'name': 'targetSetpoint',
-      'value': {
-        'value': targetSetpoint,
-        'scale': 'CELSIUS'
+export async function handleAcceptGrant(request: any) {
+  return {
+    'event': {
+      'header': {
+        'namespace': 'Alexa.Authorization',
+        'name': 'AcceptGrant.Response',
+        'payloadVersion': '3',
+        'messageId': uuid()
       },
-      'timeOfSample': now,
-      'uncertaintyInMilliseconds': uncertainty
-    },
-    // 温度計
-    {
-      'namespace': 'Alexa.TemperatureSensor',
-      'name': 'temperature',
-      'value': {
-        'value': status.inside_temp,
-        'scale': 'CELSIUS'
-      },
-      'timeOfSample': now,
-      'uncertaintyInMilliseconds': uncertainty
-    },
-    // ON/OFF
-    {
-      'namespace': 'Alexa.PowerController',
-      'name': 'powerState',
-      'value': status.operation_status ? 'ON' : 'OFF',
-      'timeOfSample': now,
-      'uncertaintyInMilliseconds': uncertainty
+      'payload': {}
     }
-  ];
+  };
+}
+
+/**
+ * 状態レポート
+ *
+ * @param request
+ * @returns
+ */
+export async function handleReportState(request: any) {
+  const db = getDynamoDB();
+  const endpointId = request.directive.endpoint.endpointId as string;
+  const [applianceId, childId] = endpointId.split('@');
+
+  const currentStatusResult = await db.get({
+    TableName: 'eolia_report_status',
+    Key: { id: applianceId }
+  }).promise();
+
+  let reportStatus: EoliaStatus | undefined = undefined;
+  let uncertainty: number = 0;
+  if (currentStatusResult.Item) {
+    reportStatus = currentStatusResult.Item.status;
+    uncertainty = DateTime.fromISO(currentStatusResult.Item.timestamp).diffNow().milliseconds * -1;
+  }
+
+  // 機器新規登録時、もしくはデータが古い場合は更新
+  if (!reportStatus || uncertainty >= REFRESH_STATUS_MILLISECONDS) {
+    const client = await getClient();
+    reportStatus = await client.getDeviceStatus(applianceId);
+    if (currentStatusResult.Item) {
+      await db.put({
+        TableName: 'eolia_report_status',
+        Item: {
+          id: reportStatus.appliance_id,
+          timestamp: DateTime.local().toISO(),
+          status: reportStatus
+        }
+      }).promise();
+    } else {
+      reportStatus = await updateStatus(client, reportStatus);
+    }
+  }
+
+  let reports;
+  if (!childId) {
+    reports = createThermostatReports(reportStatus, uncertainty);
+  } else if (childId === 'Fan') {
+    reports = createFanReports(reportStatus, uncertainty);
+  } else {
+    throw new Error(`Undefined childId: ${childId}`);
+  }
+
+  return {
+    'event': {
+      'header': {
+        'namespace': 'Alexa',
+        'name': 'StateReport',
+        'messageId': uuid(),
+        'correlationToken': request.directive.header.correlationToken,
+        'payloadVersion': '3'
+      },
+      'endpoint': {
+        'endpointId': endpointId
+      },
+      'payload': {}
+    },
+    'context': {
+      'properties': reports
+    }
+  };
 }
