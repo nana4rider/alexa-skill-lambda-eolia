@@ -90,14 +90,14 @@ export async function handleDiscover(request: any): Promise<object> {
     const supportLong = functions.has('air_flow_quiet_powerful_long');
     const supportNanoex = functions.has('nanoex');
 
-    // その他機能
+    // 詳細設定
     endpoints.push({
       'endpointId': device.appliance_id + '@Fan',
       'manufacturerName': manufacturerName,
-      // リビングエアコン → リビングファン
-      'friendlyName': device.nickname.replace('エアコン', '') + 'ファン',
-      'description': device.product_code + ' ' + device.product_name + 'のファン機能',
-      'displayCategories': ['FAN'],
+      // リビングエアコン → 詳細設定リビングエアコン(グループに紐づけて発話する想定)
+      'friendlyName': '詳細設定' + device.nickname,
+      'description': device.product_code + ' ' + device.product_name + 'の詳細設定',
+      'displayCategories': ['OTHER'],
       'capabilities': [
         // 風量
         {
@@ -659,7 +659,7 @@ export async function handleDiscover(request: any): Promise<object> {
         // https://developer.amazon.com/ja-JP/docs/alexa/device-apis/alexa-thermostatcontroller.html
         'endpointId': device.appliance_id + '@NanoexCleaning',
         'manufacturerName': manufacturerName,
-        'friendlyName': device.nickname + 'の掃除',
+        'friendlyName': device.nickname + 'おでかけクリーン',
         'description': `${device.product_code} ${device.product_name} おでかけクリーン機能`,
         'displayCategories': ['SCENE_TRIGGER'],
         'capabilities': [
