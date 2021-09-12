@@ -16,12 +16,14 @@ export async function handleDiscover(request: any): Promise<object> {
   for (const device of devices) {
     console.log('device:', device);
 
+    const functions = await client.getFunctions(device.product_code);
+
     endpoints.push({
       // https://developer.amazon.com/ja-JP/docs/alexa/device-apis/alexa-thermostatcontroller.html
       'endpointId': device.appliance_id,
       'manufacturerName': manufacturerName,
       'friendlyName': device.nickname,
-      'description': device.product_code + ' ' + device.product_name,
+      'description': `${device.product_code} ${device.product_name}`,
       'displayCategories': ['THERMOSTAT', 'TEMPERATURE_SENSOR'],
       'capabilities': [
         // エアコン
@@ -85,12 +87,15 @@ export async function handleDiscover(request: any): Promise<object> {
       ]
     });
 
+    const supportLong = functions.has('air_flow_quiet_powerful_long');
+    const supportNanoex = functions.has('nanoex');
+
     // その他機能
     endpoints.push({
       'endpointId': device.appliance_id + '@Fan',
       'manufacturerName': manufacturerName,
       // リビングエアコン → リビングファン
-      'friendlyName': device.nickname.replace('エアコン', 'ファン'),
+      'friendlyName': device.nickname.replace('エアコン', '') + 'ファン',
       'description': device.product_code + ' ' + device.product_name + 'のファン機能',
       'displayCategories': ['FAN'],
       'capabilities': [
@@ -222,7 +227,7 @@ export async function handleDiscover(request: any): Promise<object> {
                   ]
                 }
               },
-              {
+              ...supportLong ? [{
                 'value': 'AirFlow.long',
                 'modeResources': {
                   'friendlyNames': [
@@ -235,7 +240,7 @@ export async function handleDiscover(request: any): Promise<object> {
                     }
                   ]
                 }
-              },
+              }] : [],
               {
                 'value': 'AirFlow.quiet',
                 'modeResources': {
@@ -612,7 +617,7 @@ export async function handleDiscover(request: any): Promise<object> {
           }
         },
         // ナノイーX
-        {
+        ...supportNanoex ? [{
           'type': 'AlexaInterface',
           'interface': 'Alexa.ToggleController',
           'instance': 'Eolia.Nanoex',
@@ -638,7 +643,7 @@ export async function handleDiscover(request: any): Promise<object> {
               }
             ]
           }
-        },
+        }] : [],
         // Alexa
         {
           'type': 'AlexaInterface',
@@ -648,23 +653,25 @@ export async function handleDiscover(request: any): Promise<object> {
       ]
     });
 
-    // おでかけクリーン
-    endpoints.push({
-      // https://developer.amazon.com/ja-JP/docs/alexa/device-apis/alexa-thermostatcontroller.html
-      'endpointId': device.appliance_id + '@NanoexCleaning',
-      'manufacturerName': manufacturerName,
-      'friendlyName': device.nickname + 'の掃除',
-      'description': `${device.product_code} ${device.product_name} おでかけクリーン機能`,
-      'displayCategories': ['SCENE_TRIGGER'],
-      'capabilities': [
-        {
-          'type': 'AlexaInterface',
-          'interface': 'Alexa.SceneController',
-          'version': '3',
-          'supportsDeactivation': true
-        }
-      ]
-    });
+    if (functions.has('nanoex_cleaning')) {
+      // おでかけクリーン
+      endpoints.push({
+        // https://developer.amazon.com/ja-JP/docs/alexa/device-apis/alexa-thermostatcontroller.html
+        'endpointId': device.appliance_id + '@NanoexCleaning',
+        'manufacturerName': manufacturerName,
+        'friendlyName': device.nickname + 'の掃除',
+        'description': `${device.product_code} ${device.product_name} おでかけクリーン機能`,
+        'displayCategories': ['SCENE_TRIGGER'],
+        'capabilities': [
+          {
+            'type': 'AlexaInterface',
+            'interface': 'Alexa.SceneController',
+            'version': '3',
+            'supportsDeactivation': true
+          }
+        ]
+      });
+    }
   }
 
   return {
