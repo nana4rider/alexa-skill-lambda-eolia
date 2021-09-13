@@ -4,7 +4,7 @@ import { env } from 'process';
 import { v4 as uuid } from 'uuid';
 import { AlexaThermostatMode } from '../model/AlexaThermostatMode';
 import { getDynamoDB } from '../util';
-import { createFanReports } from './fan';
+import { createSettingReports } from './setting';
 import { createThermostatReports } from './thermostat';
 
 /** Turn ON時、指定した温度以上で冷房、それ以外は暖房とする */
@@ -50,7 +50,7 @@ export function getAlexaThermostatMode(mode: EoliaOperationMode): AlexaThermosta
   case 'Auto':
     return 'AUTO';
   case 'Cooling':
-  case 'CoolDehumidifying':
+  case 'CoolDehumidifying': // 冷房除湿もAlexaの扱いは冷房とする
     return 'COOL';
   case 'Heating':
     return 'HEAT';
@@ -76,10 +76,11 @@ export function getEoliaOperationMode(mode: AlexaThermostatMode, customName: str
   case 'HEAT':
     return 'Heating';
   case 'CUSTOM':
+    // 現状、衣類乾燥や除湿(冷房ではない)は未対応
     switch (customName) {
-    case 'DEHUMIDIFY':
+    case 'DEHUMIDIFY': // 発話: 除湿
       return 'CoolDehumidifying';
-    case 'FAN':
+    case 'FAN': // 発話: 送風
       return 'Blast';
     }
     break;
@@ -194,8 +195,8 @@ export async function handleReportState(request: any) {
   let reports;
   if (!childId) {
     reports = createThermostatReports(reportStatus, uncertainty);
-  } else if (childId === 'Fan') {
-    reports = createFanReports(reportStatus, uncertainty);
+  } else if (childId === 'Setting') {
+    reports = createSettingReports(reportStatus, uncertainty);
   } else {
     throw new Error(`Undefined childId: ${childId}`);
   }

@@ -3,11 +3,12 @@ import { getDynamoDB } from '../util';
 import { getClient, updateStatus } from './common';
 
 /**
- * おでかけクリーン有効
+ * おそうじ/おでかけクリーン有効
  *
  * @param applianceId
+ * @param operationMode
  */
-export async function handleCleaningActivate(applianceId: string) {
+export async function handleCleaningActivate(applianceId: string, operationMode: 'Cleaning' | 'NanoexCleaning') {
   const db = getDynamoDB();
   const nowDate = DateTime.local();
   const now = nowDate.toISO();
@@ -35,7 +36,7 @@ export async function handleCleaningActivate(applianceId: string) {
 
     if (doCleaning) {
       status.operation_status = false;
-      status.operation_mode = 'NanoexCleaning';
+      status.operation_mode = operationMode;
 
       await updateStatus(client, status);
 
@@ -48,7 +49,7 @@ export async function handleCleaningActivate(applianceId: string) {
 }
 
 /**
- * おでかけクリーン無効
+ * おそうじ/おでかけクリーン無効
  *
  * @param applianceId
  */

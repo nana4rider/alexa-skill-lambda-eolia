@@ -89,12 +89,13 @@ export async function handleDiscover(request: any): Promise<object> {
 
     const supportLong = functions.has('air_flow_quiet_powerful_long');
     const supportNanoex = functions.has('nanoex');
+    const supportAiControl = functions.has('ai_control');
 
-    // 詳細設定
+    // Thermostatでサポートできないその他設定を、別のデバイスとして登録
     endpoints.push({
-      'endpointId': device.appliance_id + '@Fan',
+      'endpointId': device.appliance_id + '@Setting',
       'manufacturerName': manufacturerName,
-      // リビングエアコン → 詳細設定リビングエアコン(グループに紐づけて発話する想定)
+      // リビングエアコン → 詳細設定リビングエアコン(グループに紐付けて発話する想定)
       'friendlyName': '詳細設定' + device.nickname,
       'description': device.product_code + ' ' + device.product_name + 'の詳細設定',
       'displayCategories': ['OTHER'],
@@ -285,7 +286,7 @@ export async function handleDiscover(request: any): Promise<object> {
               {
                 '@type': 'text',
                 'value': {
-                  // 風向だと認識せず
+                  // "風向"では認識せず
                   'text': '風向き',
                   'locale': 'ja-JP'
                 }
@@ -644,6 +645,81 @@ export async function handleDiscover(request: any): Promise<object> {
             ]
           }
         }] : [],
+        // AIコントロール
+        ...supportAiControl ? [{
+          'type': 'AlexaInterface',
+          'interface': 'Alexa.ModeController',
+          'instance': 'Eolia.AiControl',
+          'version': '3',
+          'properties': {
+            'supported': [
+              {
+                'name': 'mode'
+              }
+            ],
+            'retrievable': true,
+            'proactivelyReported': true,
+            'nonControllable': false
+          },
+          'capabilityResources': {
+            'friendlyNames': [
+              {
+                '@type': 'text',
+                'value': {
+                  'text': 'AIコントロール',
+                  'locale': 'ja-JP'
+                }
+              }
+            ]
+          },
+          'configuration': {
+            'ordered': false,
+            'supportedModes': [
+              {
+                'value': 'AiControl.comfortable',
+                'modeResources': {
+                  'friendlyNames': [
+                    {
+                      '@type': 'text',
+                      'value': {
+                        'text': '快適',
+                        'locale': 'ja-JP'
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                'value': 'AiControl.comfortable_econavi',
+                'modeResources': {
+                  'friendlyNames': [
+                    {
+                      '@type': 'text',
+                      'value': {
+                        'text': 'エコナビ',
+                        'locale': 'ja-JP'
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                'value': 'AiControl.off',
+                'modeResources': {
+                  'friendlyNames': [
+                    {
+                      '@type': 'text',
+                      'value': {
+                        'text': 'オフ',
+                        'locale': 'ja-JP'
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }] : [],
         // Alexa
         {
           'type': 'AlexaInterface',
@@ -653,13 +729,32 @@ export async function handleDiscover(request: any): Promise<object> {
       ]
     });
 
+    if (functions.has('cleaning')) {
+      // おそうじ
+      endpoints.push({
+        'endpointId': device.appliance_id + '@Cleaning',
+        'manufacturerName': manufacturerName,
+        'friendlyName': device.nickname + 'お掃除',
+        'description': `${device.product_code} ${device.product_name} おそうじ機能`,
+        'displayCategories': ['SCENE_TRIGGER'],
+        'capabilities': [
+          {
+            'type': 'AlexaInterface',
+            'interface': 'Alexa.SceneController',
+            'version': '3',
+            'supportsDeactivation': true
+          }
+        ]
+      });
+    }
+
     if (functions.has('nanoex_cleaning')) {
       // おでかけクリーン
       endpoints.push({
-        // https://developer.amazon.com/ja-JP/docs/alexa/device-apis/alexa-thermostatcontroller.html
         'endpointId': device.appliance_id + '@NanoexCleaning',
         'manufacturerName': manufacturerName,
-        'friendlyName': device.nickname + 'おでかけクリーン',
+        // "おでかけ"では認識せず
+        'friendlyName': device.nickname + 'お出かけクリーン',
         'description': `${device.product_code} ${device.product_name} おでかけクリーン機能`,
         'displayCategories': ['SCENE_TRIGGER'],
         'capabilities': [

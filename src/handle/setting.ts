@@ -9,7 +9,7 @@ import { getClient, updateStatus } from './common';
  * @param applianceId
  * @param request
  */
-export async function handleFanSetMode(applianceId: string, request: any) {
+export async function handleSettingSetMode(applianceId: string, request: any) {
   const client = await getClient();
   let status = await client.getDeviceStatus(applianceId);
 
@@ -50,13 +50,19 @@ export async function handleFanSetMode(applianceId: string, request: any) {
       status.wind_direction_horizon = modeValue as any;
       updated = true;
     }
+  } else if (instanceName === 'Eolia.AiControl') {
+    // AIコントロール
+    if (modeValue !== status.ai_control) {
+      status.ai_control = modeValue as any;
+      updated = true;
+    }
   }
 
   if (updated) {
     status = await updateStatus(client, status);
   }
 
-  return createFanReports(status, 0);
+  return createSettingReports(status, 0);
 }
 
 /**
@@ -65,7 +71,7 @@ export async function handleFanSetMode(applianceId: string, request: any) {
  * @param applianceId
  * @param request
  */
-export async function handleFanTurnOn(applianceId: string, request: any) {
+export async function handleSettingTurnOn(applianceId: string, request: any) {
   const client = await getClient();
   let status = await client.getDeviceStatus(applianceId);
 
@@ -88,7 +94,7 @@ export async function handleFanTurnOn(applianceId: string, request: any) {
     status = await updateStatus(client, status);
   }
 
-  return createFanReports(status, 0);
+  return createSettingReports(status, 0);
 }
 
 /**
@@ -97,7 +103,7 @@ export async function handleFanTurnOn(applianceId: string, request: any) {
  * @param applianceId
  * @param request
  */
-export async function handleFanTurnOff(applianceId: string, request: any) {
+export async function handleSettingTurnOff(applianceId: string, request: any) {
   const client = await getClient();
   let status = await client.getDeviceStatus(applianceId);
 
@@ -120,7 +126,7 @@ export async function handleFanTurnOff(applianceId: string, request: any) {
     status = await updateStatus(client, status);
   }
 
-  return createFanReports(status, 0);
+  return createSettingReports(status, 0);
 }
 
 /**
@@ -130,7 +136,7 @@ export async function handleFanTurnOff(applianceId: string, request: any) {
  * @param uncertainty
  * @returns 変更レポート
  */
-export function createFanReports(status: EoliaStatus, uncertainty: number) {
+export function createSettingReports(status: EoliaStatus, uncertainty: number) {
   const now = DateTime.local().toISO();
 
   return [
@@ -168,6 +174,15 @@ export function createFanReports(status: EoliaStatus, uncertainty: number) {
       'instance': 'Eolia.Nanoex',
       'name': 'toggleState',
       'value': status.nanoex ? 'ON' : 'OFF',
+      'timeOfSample': now,
+      'uncertaintyInMilliseconds': uncertainty
+    },
+    // AIコントロール
+    {
+      'namespace': 'Alexa.ModeController',
+      'instance': 'Eolia.AiControl',
+      'name': 'mode',
+      'value': 'AiControl.' + status.ai_control,
       'timeOfSample': now,
       'uncertaintyInMilliseconds': uncertainty
     },

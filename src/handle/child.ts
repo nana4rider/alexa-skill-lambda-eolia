@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { v4 as uuid } from 'uuid';
 import { handleCleaningActivate, handleCleaningDeactivate } from './cleaning';
-import { handleFanSetMode, handleFanTurnOff, handleFanTurnOn } from './fan';
+import { handleSettingSetMode, handleSettingTurnOff, handleSettingTurnOn } from './setting';
 
 /**
  * モード指定
@@ -13,8 +13,8 @@ export async function handleChildSetMode(request: any) {
   const [applianceId, childId] = endpointId.split('@');
 
   let reports;
-  if (childId === 'Fan') {
-    reports = await handleFanSetMode(applianceId, request);
+  if (childId === 'Setting') {
+    reports = await handleSettingSetMode(applianceId, request);
   } else {
     throw new Error(`Undefined childId: ${childId}`);
   }
@@ -49,8 +49,8 @@ export async function handleChildTurnOn(request: any) {
   const [applianceId, childId] = endpointId.split('@');
 
   let reports;
-  if (childId === 'Fan') {
-    reports = await handleFanTurnOn(applianceId, request);
+  if (childId === 'Setting') {
+    reports = await handleSettingTurnOn(applianceId, request);
   } else {
     throw new Error(`Undefined childId: ${childId}`);
   }
@@ -85,8 +85,8 @@ export async function handleChildTurnOff(request: any) {
   const [applianceId, childId] = endpointId.split('@');
 
   let reports;
-  if (childId === 'Fan') {
-    reports = await handleFanTurnOff(applianceId, request);
+  if (childId === 'Setting') {
+    reports = await handleSettingTurnOff(applianceId, request);
   } else {
     throw new Error(`Undefined childId: ${childId}`);
   }
@@ -121,8 +121,8 @@ export async function handleChildSceneActivate(request: any) {
   const endpointId = request.directive.endpoint.endpointId as string;
   const [applianceId, childId] = endpointId.split('@');
 
-  if (childId === 'NanoexCleaning') {
-    await handleCleaningActivate(applianceId);
+  if (childId === 'Cleaning' || childId === 'NanoexCleaning') {
+    await handleCleaningActivate(applianceId, childId);
   } else {
     throw new Error(`Undefined childId: ${childId}`);
   }
@@ -160,7 +160,7 @@ export async function handleChildSceneDeactivate(request: any) {
   const endpointId = request.directive.endpoint.endpointId as string;
   const [applianceId, childId] = endpointId.split('@');
 
-  if (childId === 'NanoexCleaning') {
+  if (childId === 'Cleaning' || childId === 'NanoexCleaning') {
     await handleCleaningDeactivate(applianceId);
   } else {
     throw new Error(`Undefined childId: ${childId}`);
