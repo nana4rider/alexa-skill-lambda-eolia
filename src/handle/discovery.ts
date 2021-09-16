@@ -95,8 +95,8 @@ export async function handleDiscover(request: any): Promise<object> {
     endpoints.push({
       'endpointId': device.appliance_id + '@Setting',
       'manufacturerName': manufacturerName,
-      // リビングエアコン → 詳細設定リビングエアコン(グループに紐付けて発話する想定)
-      'friendlyName': '詳細設定' + device.nickname,
+      // リビングエアコン → 設定リビングエアコン(グループに紐付けて発話する想定)
+      'friendlyName': '設定' + device.nickname,
       'description': device.product_code + ' ' + device.product_name + 'の詳細設定',
       'displayCategories': ['OTHER'],
       'capabilities': [
