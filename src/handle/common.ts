@@ -75,6 +75,10 @@ export function getEoliaOperationMode(mode: AlexaThermostatMode, customName: str
     return 'Cooling';
   case 'HEAT':
     return 'Heating';
+  case 'FAN':
+    return 'Blast';
+  case 'DEHUMIDIFY':
+    return 'CoolDehumidifying';
   case 'CUSTOM':
     // 現状、衣類乾燥や除湿(冷房ではない)は未対応
     switch (customName) {
@@ -83,6 +87,7 @@ export function getEoliaOperationMode(mode: AlexaThermostatMode, customName: str
     case 'FAN': // 発話: 送風
       return 'Blast';
     }
+    console.log('[Custom Operation Mode]', mode);
     break;
   case 'OFF':
     return 'Stop';
