@@ -124,6 +124,13 @@ export async function handleDiscover(request: any): Promise<object> {
                   'text': '風量',
                   'locale': 'ja-JP'
                 }
+              },
+              {
+                '@type': 'text',
+                'value': {
+                  'text': 'エアコン風量',
+                  'locale': 'ja-JP'
+                }
               }
             ]
           },
