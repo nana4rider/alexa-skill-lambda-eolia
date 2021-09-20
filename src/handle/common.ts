@@ -9,8 +9,8 @@ import { createThermostatReports } from './thermostat';
 
 /** Turn ON時、指定した温度以上で冷房、それ以外は暖房とする */
 export const TEMPERATURE_COOL_THRESHOLD = 24;
-/** 指定時間を超えると、ReportState時にデータを再取得する(トークンを引き継がないので、120秒以上を指定する) */
-export const REFRESH_STATUS_MILLISECONDS = 120000;
+/** 指定時間を超えると、ReportState時にデータを再取得する */
+export const REFRESH_STATUS_MILLISECONDS = 60000;
 /** デフォルトの設定温度  */
 export const DEFAULT_TEMPERATURE: { [s in EoliaOperationMode]?: number } = {
   Auto: 24,
@@ -30,8 +30,8 @@ export async function getClient() {
   }
 
   const tokenResult = await getDynamoDB().get({
-    TableName: 'tokens',
-    Key: { id: 'eolia_access_token' }
+    TableName: 'eolia_tokens',
+    Key: { id: 'access_token' }
   }).promise();
 
   const accessToken = tokenResult.Item?.access_token;
@@ -105,24 +105,34 @@ export function getEoliaOperationMode(mode: AlexaThermostatMode, customName: str
 export async function updateStatus(client: EoliaClient, status: EoliaStatus) {
   const db = getDynamoDB();
   const operation = client.createOperation(status);
-  const prevStatusResult = await db.get({
-    TableName: 'eolia_report_status',
+
+  const tokenResult = await db.get({
+    TableName: 'eolia_tokens',
     Key: { id: status.appliance_id }
   }).promise();
-  // 前回のトークンがある場合は使用する
-  if (prevStatusResult.Item) {
-    operation.operation_token = prevStatusResult.Item?.status.operation_token;
-  }
+  operation.operation_token = tokenResult.Item?.token;
 
   console.log('[updateStatus]', JSON.stringify(operation));
 
-  const updatedStatus = await client.setDeviceStatus(operation);
+  status = await client.setDeviceStatus(operation);
+
+  const now = DateTime.local().toISO();
 
   await db.put({
-    TableName: 'tokens',
+    TableName: 'eolia_tokens',
     Item: {
-      id: 'eolia_access_token',
-      access_token: client.accessToken
+      id: 'access_token',
+      timestamp: now,
+      token: client.accessToken,
+    }
+  }).promise();
+
+  await db.put({
+    TableName: 'eolia_tokens',
+    Item: {
+      id: status.appliance_id,
+      timestamp: now,
+      token: status.operation_token,
     }
   }).promise();
 
@@ -130,12 +140,12 @@ export async function updateStatus(client: EoliaClient, status: EoliaStatus) {
     TableName: 'eolia_report_status',
     Item: {
       id: status.appliance_id,
-      timestamp: DateTime.local().toISO(),
-      status: updatedStatus
+      timestamp: now,
+      status: status
     }
   }).promise();
 
-  return updatedStatus;
+  return status;
 }
 
 /**

@@ -15,7 +15,7 @@ npm run set-handler
 ### DynamoDBテーブルを作成
 パーティションキーは全て `id`
 
-`tokens`, `eolia_report_status`, `eolia_cleaning`
+`eolia_tokens`, `eolia_report_status`, `eolia_cleaning`
 
 ### Lambda環境変数の設定
 `USER_ID`, `PASSWORD`
