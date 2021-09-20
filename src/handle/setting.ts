@@ -24,14 +24,14 @@ export async function handleSettingSetMode(applianceId: string, request: any) {
   if (instanceName === 'Eolia.WindVolume') {
     // 風量
     if (modeKey === 'AirFlow') {
-      if (modeValue !== status.air_flow) {
+      if (status.air_flow !== modeValue) {
         status.wind_volume = 0;
         status.air_flow = modeValue as any;
         updated = true;
       }
     } else if (modeKey === 'WindVolume') {
       const windVolume = Number(modeValue);
-      if (windVolume !== status.wind_volume) {
+      if (status.wind_volume !== windVolume || status.air_flow !== 'not_set') {
         status.wind_volume = windVolume as any;
         status.air_flow = 'not_set';
         updated = true;
@@ -40,19 +40,19 @@ export async function handleSettingSetMode(applianceId: string, request: any) {
   } else if (instanceName === 'Eolia.WindDirection') {
     // 風向(上下)
     const windDirection = Number(modeValue);
-    if (windDirection !== status.wind_direction) {
+    if (status.wind_direction !== windDirection) {
       status.wind_direction = windDirection as any;
       updated = true;
     }
   } else if (instanceName === 'Eolia.WindDirectionHorizon') {
     // 風向(左右)
-    if (modeValue !== status.wind_direction_horizon) {
+    if (status.wind_direction_horizon !== modeValue) {
       status.wind_direction_horizon = modeValue as any;
       updated = true;
     }
   } else if (instanceName === 'Eolia.AiControl') {
     // AIコントロール
-    if (modeValue !== status.ai_control) {
+    if (status.ai_control !== modeValue) {
       status.ai_control = modeValue as any;
       updated = true;
     }
