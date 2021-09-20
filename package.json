@@ -1,6 +1,6 @@
 {
   "name": "alexa-skill-lambda-eolia",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "main": "index.js",
   "files": [
     "dst/**/*.js"
