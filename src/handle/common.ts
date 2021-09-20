@@ -114,6 +114,8 @@ export async function updateStatus(client: EoliaClient, status: EoliaStatus) {
     operation.operation_token = prevStatusResult.Item?.status.operation_token;
   }
 
+  console.log('[updateStatus]', JSON.stringify(operation));
+
   const updatedStatus = await client.setDeviceStatus(operation);
 
   await db.put({
