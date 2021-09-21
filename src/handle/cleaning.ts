@@ -21,7 +21,6 @@ export async function handleCleaningActivate(applianceId: string, operationMode:
       TableName: 'eolia_cleaning',
       Key: { id: status.appliance_id }
     }).promise();
-    // 前回のトークンがある場合は使用する
 
     let doCleaning: boolean;
     if (prevCleaning.Item) {
