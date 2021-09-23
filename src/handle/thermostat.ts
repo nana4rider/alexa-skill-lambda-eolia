@@ -2,7 +2,7 @@ import { DateTime } from 'luxon';
 import { EoliaClient, EoliaStatus } from 'panasonic-eolia-ts';
 import { v4 as uuid } from 'uuid';
 import { AlexaThermostatMode } from '../model/AlexaThermostatMode';
-import { DEFAULT_TEMPERATURE, getAlexaThermostatMode, getClient, getEoliaOperationMode, TEMPERATURE_COOL_THRESHOLD, updateStatus } from './common';
+import { DEFAULT_TEMPERATURE, getAlexaThermostatMode, getClient, getEoliaOperationMode, getStatus, TEMPERATURE_COOL_THRESHOLD, updateStatus } from './common';
 
 /**
  * 温度指定(絶対値)
@@ -15,7 +15,7 @@ export async function handleSetTargetTemperature(request: any) {
   const applianceId = request.directive.endpoint.endpointId as string;
 
   const client = await getClient();
-  let status = await client.getDeviceStatus(applianceId);
+  let status = await getStatus(client, applianceId);
 
   // 強制的にONにする
   if (!status.operation_status) {
@@ -62,7 +62,7 @@ export async function handleAdjustTargetTemperature(request: any) {
   const applianceId = request.directive.endpoint.endpointId as string;
 
   const client = await getClient();
-  let status = await client.getDeviceStatus(applianceId);
+  let status = await getStatus(client, applianceId);
 
   // 強制的にONにする
   if (!status.operation_status) {
@@ -108,7 +108,7 @@ export async function handleSetThermostatMode(request: any) {
   const applianceId = request.directive.endpoint.endpointId as string;
 
   const client = await getClient();
-  let status = await client.getDeviceStatus(applianceId);
+  let status = await getStatus(client, applianceId);
 
   const thermostatMode: AlexaThermostatMode = request.directive.payload.thermostatMode.value;
   const customName: string = request.directive.payload.thermostatMode.customName;
@@ -161,7 +161,7 @@ export async function handleTurnOn(request: any) {
   const applianceId = request.directive.endpoint.endpointId as string;
 
   const client = await getClient();
-  let status = await client.getDeviceStatus(applianceId);
+  let status = await getStatus(client, applianceId);
 
   // 既にONになっている場合は返答のみ
   if (!status.operation_status) {
@@ -201,7 +201,7 @@ export async function handleTurnOff(request: any) {
   const applianceId = request.directive.endpoint.endpointId as string;
 
   const client = await getClient();
-  let status = await client.getDeviceStatus(applianceId);
+  let status = await getStatus(client, applianceId);
 
   // 既にOFFになっている場合は返答のみ
   // operation_status=falseでも掃除中の場合があるので、operation_mode=STOPでOFFかどうかを確認する

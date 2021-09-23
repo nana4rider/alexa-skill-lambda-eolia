@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 import { getDynamoDB } from '../util';
-import { getClient, updateStatus } from './common';
+import { getClient, getStatus, updateStatus } from './common';
 
 /**
  * おそうじ/おでかけクリーン有効
@@ -14,7 +14,7 @@ export async function handleCleaningActivate(applianceId: string, operationMode:
   const now = nowDate.toISO();
 
   const client = await getClient();
-  const status = await client.getDeviceStatus(applianceId);
+  const status = await getStatus(client, applianceId);
 
   if (status.operation_mode !== 'NanoexCleaning' && status.operation_mode !== 'Cleaning') {
     const prevCleaning = await db.get({
@@ -54,7 +54,7 @@ export async function handleCleaningActivate(applianceId: string, operationMode:
  */
 export async function handleCleaningDeactivate(applianceId: string) {
   const client = await getClient();
-  const status = await client.getDeviceStatus(applianceId);
+  const status = await getStatus(client, applianceId);
 
   if (status.operation_mode === 'NanoexCleaning' || status.operation_mode === 'Cleaning') {
     // operation_modeを変更しないと掃除が止まらない

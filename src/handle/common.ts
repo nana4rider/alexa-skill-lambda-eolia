@@ -9,15 +9,20 @@ import { createThermostatReports } from './thermostat';
 
 /** Turn ON時、指定した温度以上で冷房、それ以外は暖房とする */
 export const TEMPERATURE_COOL_THRESHOLD = 24;
-/** 指定時間を超えると、ReportState時にデータを再取得する */
-export const REFRESH_STATUS_MILLISECONDS = 60000;
 /** デフォルトの設定温度  */
-export const DEFAULT_TEMPERATURE: { [s in EoliaOperationMode]?: number } = {
+export const DEFAULT_TEMPERATURE: Partial<Record<EoliaOperationMode, number>> = {
   Auto: 24,
   Cooling: 26,
   CoolDehumidifying: 26,
   Heating: 20
 };
+/**
+ * trueに設定すると、120秒以内であっても常にAPIから状態を取得する。
+ * エアコンをAPIでのみ操作する場合、更新から120秒以内であれば
+ * 他の端末で状態を変更されていないことを保証できるが、
+ * 赤外線リモコンを使用する場合保証できないので、trueに設定することを推奨します。
+ */
+export const USE_INFRARED_REMOTE_CONTROL = false;
 
 /**
  * Eoliaクライアントを取得します。
@@ -96,6 +101,35 @@ export function getEoliaOperationMode(mode: AlexaThermostatMode, customName: str
 }
 
 /**
+ * エアコンの状態を取得します。
+ * 操作トークンの有効期限が切れていない場合、状態レポートをキャッシュとして利用します。
+ *
+ * @param client Eoliaクライアント
+ * @param applianceId Eolia機器ID
+ * @returns Eolia状態データ
+ */
+export async function getStatus(client: EoliaClient, applianceId: string): Promise<EoliaStatus> {
+  if (USE_INFRARED_REMOTE_CONTROL) {
+    return client.getDeviceStatus(applianceId);
+  }
+
+  const db = getDynamoDB();
+  const statusResult = await db.get({
+    TableName: 'eolia_report_status',
+    Key: { id: applianceId }
+  }).promise();
+
+  if (statusResult.Item && statusResult.Item.status.operation_token) {
+    const diffNow = DateTime.fromISO(statusResult.Item.timestamp).diffNow().milliseconds * -1;
+    if (diffNow < EoliaClient.OPERATION_TOKEN_LIFETIME) {
+      return statusResult.Item.status;
+    }
+  }
+
+  return client.getDeviceStatus(applianceId);
+}
+
+/**
  * エアコンの状態を更新します。
  *
  * @param client Eoliaクライアント
@@ -118,32 +152,32 @@ export async function updateStatus(client: EoliaClient, status: EoliaStatus) {
 
   const now = DateTime.local().toISO();
 
-  await db.put({
-    TableName: 'eolia_tokens',
-    Item: {
-      id: 'access_token',
-      timestamp: now,
-      token: client.accessToken,
-    }
-  }).promise();
-
-  await db.put({
-    TableName: 'eolia_tokens',
-    Item: {
-      id: status.appliance_id,
-      timestamp: now,
-      token: status.operation_token,
-    }
-  }).promise();
-
-  await db.put({
-    TableName: 'eolia_report_status',
-    Item: {
-      id: status.appliance_id,
-      timestamp: now,
-      status: status
-    }
-  }).promise();
+  await Promise.all([
+    db.put({
+      TableName: 'eolia_tokens',
+      Item: {
+        id: 'access_token',
+        timestamp: now,
+        token: client.accessToken,
+      }
+    }).promise(),
+    db.put({
+      TableName: 'eolia_tokens',
+      Item: {
+        id: status.appliance_id,
+        timestamp: now,
+        token: status.operation_token,
+      }
+    }).promise(),
+    db.put({
+      TableName: 'eolia_report_status',
+      Item: {
+        id: status.appliance_id,
+        timestamp: now,
+        status: status
+      }
+    }).promise()
+  ]);
 
   return status;
 }
@@ -185,28 +219,28 @@ export async function handleReportState(request: any) {
   }).promise();
 
   let reportStatus: EoliaStatus | undefined = undefined;
-  let uncertainty: number = 0;
+  let uncertainty = 0;
   if (currentStatusResult.Item) {
-    reportStatus = currentStatusResult.Item.status;
-    uncertainty = DateTime.fromISO(currentStatusResult.Item.timestamp).diffNow().milliseconds * -1;
+    const diffNow = DateTime.fromISO(currentStatusResult.Item.timestamp).diffNow().milliseconds * -1;
+
+    if (diffNow < EoliaClient.OPERATION_TOKEN_LIFETIME) {
+      reportStatus = currentStatusResult.Item.status;
+      uncertainty = diffNow;
+    }
   }
 
-  // 機器新規登録時、もしくはデータが古い場合は更新
-  if (!reportStatus || uncertainty >= REFRESH_STATUS_MILLISECONDS) {
+  if (!reportStatus) {
     const client = await getClient();
     reportStatus = await client.getDeviceStatus(applianceId);
-    if (currentStatusResult.Item) {
-      await db.put({
-        TableName: 'eolia_report_status',
-        Item: {
-          id: reportStatus.appliance_id,
-          timestamp: DateTime.local().toISO(),
-          status: reportStatus
-        }
-      }).promise();
-    } else {
-      reportStatus = await updateStatus(client, reportStatus);
-    }
+
+    await db.put({
+      TableName: 'eolia_report_status',
+      Item: {
+        id: reportStatus.appliance_id,
+        timestamp: DateTime.local().toISO(),
+        status: reportStatus
+      }
+    }).promise();
   }
 
   let reports;

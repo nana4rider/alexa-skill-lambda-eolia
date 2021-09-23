@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { EoliaStatus } from 'panasonic-eolia-ts';
 import { AlexaError } from '../util';
-import { getClient, updateStatus } from './common';
+import { getClient, getStatus, updateStatus } from './common';
 
 /**
  * モード指定
@@ -11,7 +11,7 @@ import { getClient, updateStatus } from './common';
  */
 export async function handleSettingSetMode(applianceId: string, request: any) {
   const client = await getClient();
-  let status = await client.getDeviceStatus(applianceId);
+  let status = await getStatus(client, applianceId);
 
   if (!status.operation_status) {
     throw new AlexaError('NOT_IN_OPERATION');
@@ -73,7 +73,7 @@ export async function handleSettingSetMode(applianceId: string, request: any) {
  */
 export async function handleSettingTurnOn(applianceId: string, request: any) {
   const client = await getClient();
-  let status = await client.getDeviceStatus(applianceId);
+  let status = await getStatus(client, applianceId);
 
   if (!status.operation_status) {
     throw new AlexaError('NOT_IN_OPERATION');
@@ -105,7 +105,7 @@ export async function handleSettingTurnOn(applianceId: string, request: any) {
  */
 export async function handleSettingTurnOff(applianceId: string, request: any) {
   const client = await getClient();
-  let status = await client.getDeviceStatus(applianceId);
+  let status = await getStatus(client, applianceId);
 
   if (!status.operation_status) {
     throw new AlexaError('NOT_IN_OPERATION');
