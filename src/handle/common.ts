@@ -34,7 +34,7 @@ export async function getClient() {
     Key: { id: 'access_token' }
   }).promise();
 
-  const accessToken = tokenResult.Item?.access_token;
+  const accessToken = tokenResult.Item?.token;
 
   return new EoliaClient(env.USER_ID, env.PASSWORD, accessToken);
 }
