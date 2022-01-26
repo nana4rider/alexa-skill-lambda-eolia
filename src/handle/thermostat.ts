@@ -2,7 +2,7 @@ import { DateTime } from 'luxon';
 import { EoliaClient, EoliaOperationMode, EoliaStatus } from 'panasonic-eolia-ts';
 import { v4 as uuid } from 'uuid';
 import { AlexaThermostatMode } from '../model/AlexaThermostatMode';
-import { DEFAULT_TEMPERATURE, getAlexaThermostatMode, getClient, getEoliaOperationMode, getStatus, updateStatus } from './common';
+import { DEFAULT_TEMPERATURE, getAlexaThermostatMode, getClient, getEoliaOperationMode, getStatus, TEMPERATURE_COOL_THRESHOLD, updateStatus } from './common';
 
 /**
  * 温度指定(絶対値)
@@ -305,9 +305,60 @@ function getDefaultOperationMode(temperature?: number): EoliaOperationMode {
 
   if (!temperature) {
     return 'Auto';
-  } else if (temperature >= 24) {
+  } else if (temperature >= TEMPERATURE_COOL_THRESHOLD) {
     return 'Cooling';
   } else {
     return 'Heating';
   }
+}
+
+/**
+ * 室温で冷房・暖房・ONしないを自動判断
+ *
+ * @param applianceId
+ */
+export async function handleAutoJudgeActivate(applianceId: string) {
+  const month = DateTime.local().month;
+  const client = await getClient();
+  const status = await getStatus(client, applianceId);
+
+  if (status.operation_status) {
+    return;
+  }
+
+  status.operation_status = true;
+
+  let operationMode: EoliaOperationMode | undefined = undefined;
+  let changeTemperature: boolean = false;
+
+  if ([6, 7, 8, 9].includes(month)) {
+    if (status.inside_temp >= 28) {
+      if (status.inside_humidity >= 70) {
+        operationMode = 'CoolDehumidifying';
+      } else {
+        operationMode = 'Cooling';
+      }
+      changeTemperature = status.temperature < TEMPERATURE_COOL_THRESHOLD;
+    }
+  } else if ([11, 12, 1, 2, 3].includes(month)) {
+    if (status.inside_temp <= 18) {
+      operationMode = 'Heating';
+      changeTemperature = status.temperature >= TEMPERATURE_COOL_THRESHOLD;
+    }
+  }
+
+  if (!operationMode) {
+    return;
+  }
+
+  status.operation_mode = operationMode;
+
+  if (changeTemperature) {
+    const defaultTemperature = DEFAULT_TEMPERATURE[status.operation_mode];
+    if (defaultTemperature) {
+      status.temperature = defaultTemperature;
+    }
+  }
+
+  await updateStatus(client, status);
 }

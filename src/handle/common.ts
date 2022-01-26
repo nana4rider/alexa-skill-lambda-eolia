@@ -7,6 +7,8 @@ import { getDynamoDB } from '../util';
 import { createSettingReports } from './setting';
 import { createThermostatReports } from './thermostat';
 
+/** 自動判断が必要なとき、指定した温度以上で冷房、それ以外は暖房とする */
+export const TEMPERATURE_COOL_THRESHOLD = 24;
 /** デフォルトの設定温度  */
 export const DEFAULT_TEMPERATURE: Partial<Record<EoliaOperationMode, number>> = {
   Auto: 24,

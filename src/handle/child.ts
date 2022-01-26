@@ -2,6 +2,7 @@ import { DateTime } from 'luxon';
 import { v4 as uuid } from 'uuid';
 import { handleCleaningActivate, handleCleaningDeactivate } from './cleaning';
 import { handleSettingSetMode, handleSettingTurnOff, handleSettingTurnOn } from './setting';
+import { handleAutoJudgeActivate } from './thermostat';
 
 /**
  * モード指定
@@ -123,6 +124,8 @@ export async function handleChildSceneActivate(request: any) {
 
   if (childId === 'Cleaning' || childId === 'NanoexCleaning') {
     await handleCleaningActivate(applianceId, childId);
+  } else if (childId === 'AutoJudge') {
+    await handleAutoJudgeActivate(applianceId);
   } else {
     throw new Error(`Undefined childId: ${childId}`);
   }

@@ -774,6 +774,23 @@ export async function handleDiscover(request: any): Promise<object> {
         ]
       });
     }
+
+    // 自動ON
+    endpoints.push({
+      'endpointId': device.appliance_id + '@AutoJudge',
+      'manufacturerName': manufacturerName,
+      'friendlyName': device.nickname + '自動判断',
+      'description': '室温で冷房・暖房・ONしないを自動判断',
+      'displayCategories': ['SCENE_TRIGGER'],
+      'capabilities': [
+        {
+          'type': 'AlexaInterface',
+          'interface': 'Alexa.SceneController',
+          'version': '3',
+          'supportsDeactivation': true
+        }
+      ]
+    });
   }
 
   return {
