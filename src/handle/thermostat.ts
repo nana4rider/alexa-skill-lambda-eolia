@@ -1,8 +1,8 @@
 import { DateTime } from 'luxon';
-import { EoliaClient, EoliaStatus } from 'panasonic-eolia-ts';
+import { EoliaClient, EoliaOperationMode, EoliaStatus } from 'panasonic-eolia-ts';
 import { v4 as uuid } from 'uuid';
 import { AlexaThermostatMode } from '../model/AlexaThermostatMode';
-import { DEFAULT_TEMPERATURE, getAlexaThermostatMode, getClient, getEoliaOperationMode, getStatus, TEMPERATURE_COOL_THRESHOLD, updateStatus } from './common';
+import { DEFAULT_TEMPERATURE, getAlexaThermostatMode, getClient, getEoliaOperationMode, getStatus, updateStatus } from './common';
 
 /**
  * 温度指定(絶対値)
@@ -20,7 +20,7 @@ export async function handleSetTargetTemperature(request: any) {
   // 強制的にONにする
   if (!status.operation_status) {
     status.operation_status = true;
-    status.operation_mode = status.temperature >= TEMPERATURE_COOL_THRESHOLD ? 'Cooling' : 'Heating';
+    status.operation_mode = getDefaultOperationMode(status);
   }
 
   const targetSetpoint: number = request.directive.payload.targetSetpoint.value;
@@ -67,7 +67,7 @@ export async function handleAdjustTargetTemperature(request: any) {
   // 強制的にONにする
   if (!status.operation_status) {
     status.operation_status = true;
-    status.operation_mode = status.temperature >= TEMPERATURE_COOL_THRESHOLD ? 'Cooling' : 'Heating';
+    status.operation_mode = getDefaultOperationMode(status);
   }
 
   if (EoliaClient.isTemperatureSupport(status.operation_mode)) {
@@ -166,7 +166,7 @@ export async function handleTurnOn(request: any) {
   // 既にONになっている場合は返答のみ
   if (!status.operation_status) {
     status.operation_status = true;
-    status.operation_mode = status.temperature >= TEMPERATURE_COOL_THRESHOLD ? 'Cooling' : 'Heating';
+    status.operation_mode = getDefaultOperationMode(status);
 
     status = await updateStatus(client, status);
   }
@@ -286,4 +286,20 @@ export function createThermostatReports(status: EoliaStatus, uncertainty: number
       'uncertaintyInMilliseconds': uncertainty
     }
   ];
+}
+
+/**
+ * デフォルトの運転モードを取得
+ *
+ * @param status
+ * @returns 運転モード
+ */
+function getDefaultOperationMode(status: EoliaStatus): EoliaOperationMode {
+  const month  = DateTime.local().month;
+
+  if ([5, 6, 7, 8, 9].includes(month)) {
+    return 'Cooling';
+  } else {
+    return 'Heating';
+  }
 }
