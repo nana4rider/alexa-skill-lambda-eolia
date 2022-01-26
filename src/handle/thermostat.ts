@@ -17,16 +17,16 @@ export async function handleSetTargetTemperature(request: any) {
   const client = await getClient();
   let status = await getStatus(client, applianceId);
 
-  // 強制的にONにする
-  if (!status.operation_status) {
-    status.operation_status = true;
-    status.operation_mode = getDefaultOperationMode(status);
-  }
-
   const targetSetpoint: number = request.directive.payload.targetSetpoint.value;
 
   if (EoliaClient.isTemperatureSupport(status.operation_mode) && status.temperature !== targetSetpoint) {
     status.temperature = targetSetpoint;
+
+    // 強制的にONにする
+    if (!status.operation_status) {
+      status.operation_status = true;
+      status.operation_mode = getDefaultOperationMode(status.temperature);
+    }
 
     status = await updateStatus(client, status);
   }
@@ -64,15 +64,15 @@ export async function handleAdjustTargetTemperature(request: any) {
   const client = await getClient();
   let status = await getStatus(client, applianceId);
 
-  // 強制的にONにする
-  if (!status.operation_status) {
-    status.operation_status = true;
-    status.operation_mode = getDefaultOperationMode(status);
-  }
-
   if (EoliaClient.isTemperatureSupport(status.operation_mode)) {
     const targetSetpointDelta: number = request.directive.payload.targetSetpointDelta.value;
     status.temperature += targetSetpointDelta;
+
+    // 強制的にONにする
+    if (!status.operation_status) {
+      status.operation_status = true;
+      status.operation_mode = getDefaultOperationMode(status.temperature);
+    }
 
     status = await updateStatus(client, status);
   }
@@ -166,7 +166,7 @@ export async function handleTurnOn(request: any) {
   // 既にONになっている場合は返答のみ
   if (!status.operation_status) {
     status.operation_status = true;
-    status.operation_mode = getDefaultOperationMode(status);
+    status.operation_mode = getDefaultOperationMode();
 
     status = await updateStatus(client, status);
   }
@@ -291,13 +291,21 @@ export function createThermostatReports(status: EoliaStatus, uncertainty: number
 /**
  * デフォルトの運転モードを取得
  *
- * @param status
+ * @param temperature 設定温度
  * @returns 運転モード
  */
-function getDefaultOperationMode(status: EoliaStatus): EoliaOperationMode {
-  const month  = DateTime.local().month;
+function getDefaultOperationMode(temperature?: number): EoliaOperationMode {
+  const month = DateTime.local().month;
 
-  if ([5, 6, 7, 8, 9].includes(month)) {
+  if ([6, 7, 8, 9].includes(month)) {
+    return 'Cooling';
+  } else if ([11, 12, 1, 2, 3].includes(month)) {
+    return 'Heating';
+  }
+
+  if (!temperature) {
+    return 'Auto';
+  } else if (temperature >= 24) {
     return 'Cooling';
   } else {
     return 'Heating';
