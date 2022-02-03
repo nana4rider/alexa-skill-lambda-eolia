@@ -332,7 +332,7 @@ export async function handleAutoJudgeActivate(applianceId: string) {
   let changeTemperature: boolean = false;
 
   if ([6, 7, 8, 9].includes(month)) {
-    if (status.inside_temp >= 28) {
+    if (status.inside_temp > 27) {
       if (status.inside_humidity >= 70) {
         operationMode = 'CoolDehumidifying';
       } else {
@@ -341,7 +341,7 @@ export async function handleAutoJudgeActivate(applianceId: string) {
       changeTemperature = status.temperature < TEMPERATURE_COOL_THRESHOLD;
     }
   } else if ([11, 12, 1, 2, 3].includes(month)) {
-    if (status.inside_temp <= 18) {
+    if (status.inside_temp < 20) {
       operationMode = 'Heating';
       changeTemperature = status.temperature >= TEMPERATURE_COOL_THRESHOLD;
     }
